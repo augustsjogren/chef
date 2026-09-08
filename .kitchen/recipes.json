@@ -1,3 +1,10 @@
 {
-  "recipes": []
+  "recipes": [
+    {
+      "id": "local-qwen-9b",
+      "name": "Local Qwen 9B",
+      "skills": ["local-pi-qwen"],
+      "rules": ["prefer-edit-over-write"]
+    }
+  ]
 }

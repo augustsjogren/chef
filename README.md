@@ -14,6 +14,8 @@ Canonical definitions live by **kind**. Harness-specific install notes live unde
 
 See [`AGENTS.md`](AGENTS.md) for conventions when editing this repo.
 
+CI runs `cargo fmt --check`, `cargo clippy`, and `cargo test` on push/PR.
+
 ## Install
 
 ```bash

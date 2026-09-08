@@ -78,7 +78,7 @@ pub fn items_for(harness: &Harness, project: Option<&Path>) -> Result<Vec<Item>>
 pub fn list_names(kind: &str) -> Result<Vec<String>> {
     Ok(iter_sources(kind)?
         .into_iter()
-        .map(|p| file_name(&p))
+        .map(|p| pantry_name(kind, &p))
         .collect())
 }
 
@@ -145,6 +145,13 @@ fn has_ext_suffix(path: &Path) -> bool {
     EXT_SUFFIXES.iter().any(|s| name.ends_with(s))
 }
 
+fn pantry_name(kind: &str, path: &Path) -> String {
+    if kind == "rules" {
+        return stem(path);
+    }
+    file_name(path)
+}
+
 fn file_name(path: &Path) -> String {
     path.file_name()
         .map(|n| n.to_string_lossy().into_owned())
@@ -171,6 +178,18 @@ mod tests {
         assert_eq!(
             dest_name(Path::new("rules/prefer-edit.md"), &spec),
             "prefer-edit.mdc"
+        );
+    }
+
+    #[test]
+    fn rule_pantry_name_strips_md() {
+        assert_eq!(
+            pantry_name("rules", Path::new("rules/prefer-edit-over-write.md")),
+            "prefer-edit-over-write"
+        );
+        assert_eq!(
+            pantry_name("skills", Path::new("skills/local-pi-qwen")),
+            "local-pi-qwen"
         );
     }
 

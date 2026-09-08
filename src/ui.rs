@@ -1,4 +1,4 @@
-//! Cook kitchen TUI. Cooking words are labels; navigation stays boring and fast.
+//! Kitchen TUI. Cooking words are labels; navigation stays boring and fast.
 
 use anyhow::{Context, Result};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
@@ -8,7 +8,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
 
-use cook::kitchen::{read_log, Kitchen, Status};
+use kitchen::kitchen::{read_log, Kitchen, Status};
 
 use crate::theme;
 
@@ -669,7 +669,9 @@ fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
     let items: Vec<ListItem> = if app.kitchen.agents.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
             empty_kitchen_msg(),
-            Style::default().fg(theme::muted()).add_modifier(Modifier::ITALIC),
+            Style::default()
+                .fg(theme::muted())
+                .add_modifier(Modifier::ITALIC),
         )))]
     } else {
         app.kitchen
@@ -706,7 +708,7 @@ fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
     );
 }
 
-fn agent_line(a: &cook::kitchen::Agent) -> Line<'static> {
+fn agent_line(a: &kitchen::kitchen::Agent) -> Line<'static> {
     let hot = a.status == Status::Cooking;
     let status_style = match a.status {
         Status::Cooking => Style::default().fg(theme::heat()).add_modifier(if hot {
@@ -718,11 +720,7 @@ fn agent_line(a: &cook::kitchen::Agent) -> Line<'static> {
         Status::Burnt => Style::default().fg(theme::charred()),
         Status::Raw => Style::default().fg(theme::muted()),
     };
-    let name_style = if hot {
-        theme::ink_bold()
-    } else {
-        theme::ink()
-    };
+    let name_style = if hot { theme::ink_bold() } else { theme::ink() };
     let task = a.task.as_deref().unwrap_or("Idle").to_string();
     let label = format!("{:<14}", a.status.label(a.autonomous));
     Line::from(vec![
@@ -816,7 +814,9 @@ fn draw_inspect(frame: &mut Frame, app: &App, area: Rect) {
         Line::from(""),
         Line::from(Span::styled(
             "status is local until a runtime is wired",
-            Style::default().fg(theme::muted()).add_modifier(Modifier::ITALIC),
+            Style::default()
+                .fg(theme::muted())
+                .add_modifier(Modifier::ITALIC),
         )),
     ];
     frame.render_widget(
@@ -865,7 +865,9 @@ fn draw_recipes(frame: &mut Frame, app: &mut App, area: Rect) {
     let items: Vec<ListItem> = if app.kitchen.recipes.is_empty() {
         vec![ListItem::new(Span::styled(
             "no recipes. [n] file one.",
-            Style::default().fg(theme::muted()).add_modifier(Modifier::ITALIC),
+            Style::default()
+                .fg(theme::muted())
+                .add_modifier(Modifier::ITALIC),
         ))]
     } else {
         app.kitchen
@@ -937,7 +939,9 @@ fn draw_pantry(frame: &mut Frame, app: &mut App, area: Rect) {
     let skill_items: Vec<ListItem> = if app.skills.is_empty() {
         vec![ListItem::new(Span::styled(
             "no skills in skills/",
-            Style::default().fg(theme::muted()).add_modifier(Modifier::ITALIC),
+            Style::default()
+                .fg(theme::muted())
+                .add_modifier(Modifier::ITALIC),
         ))]
     } else {
         app.skills
@@ -948,7 +952,9 @@ fn draw_pantry(frame: &mut Frame, app: &mut App, area: Rect) {
     let rule_items: Vec<ListItem> = if app.rules.is_empty() {
         vec![ListItem::new(Span::styled(
             "no rules in rules/",
-            Style::default().fg(theme::muted()).add_modifier(Modifier::ITALIC),
+            Style::default()
+                .fg(theme::muted())
+                .add_modifier(Modifier::ITALIC),
         ))]
     } else {
         app.rules.iter().map(|s| ListItem::new(s.clone())).collect()

@@ -1,4 +1,4 @@
-//! Cook: kitchen state plus the old harness linker (`wire` / `serve`).
+//! Kitchen: agent roster state and harness symlink tooling.
 
 pub mod config;
 pub mod item;

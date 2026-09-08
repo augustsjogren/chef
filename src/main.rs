@@ -9,14 +9,15 @@ use std::process::Command;
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 
-use cook::config::{expand_path, harness_by_id, load_harnesses, repo_root};
-use cook::item::{classify, items_for};
-use cook::kitchen::Kitchen;
-use cook::ops::{link_item, unlink_item};
+use kitchen::config::{expand_path, harness_by_id, load_harnesses, repo_root};
+use kitchen::item::{classify, items_for};
+use kitchen::kitchen::Kitchen;
+use kitchen::ops::{link_item, unlink_item};
 
 #[derive(Parser)]
 #[command(
     name = "kitchen",
+    version,
     about = "Kitchen CLI — pantry, recipes, and the line.",
     after_help = "Examples:\n  kitchen cook\n  kitchen cook frontend Fix accessibility\n  kitchen prep\n  kitchen serve"
 )]
@@ -194,7 +195,7 @@ fn print_kitchen() -> Result<()> {
     Ok(())
 }
 
-fn print_serve_status(h: &cook::Harness, project: Option<&std::path::Path>) -> Result<()> {
+fn print_serve_status(h: &kitchen::Harness, project: Option<&std::path::Path>) -> Result<()> {
     println!("{} ({})", h.label, h.id);
     if h.project {
         match project {

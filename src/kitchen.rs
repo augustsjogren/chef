@@ -367,7 +367,25 @@ pub fn read_log(id: &str) -> String {
     fs::read_to_string(log_path(id)).unwrap_or_default()
 }
 
+#[cfg(test)]
+thread_local! {
+    static TEST_KITCHEN_DIR: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) fn set_test_kitchen_dir(dir: Option<PathBuf>) {
+    TEST_KITCHEN_DIR.with(|slot| *slot.borrow_mut() = dir);
+}
+
 fn kitchen_dir() -> PathBuf {
+    #[cfg(test)]
+    if let Some(dir) = TEST_KITCHEN_DIR
+        .try_with(|slot| slot.borrow().clone())
+        .ok()
+        .flatten()
+    {
+        return dir;
+    }
     repo_root().join(".kitchen")
 }
 
@@ -467,6 +485,11 @@ mod tests {
 
     #[test]
     fn remove_agent_drops_from_roster() {
+        let tmp = tempfile::tempdir().unwrap();
+        let kitchen_dir = tmp.path().join(".kitchen");
+        fs::create_dir_all(&kitchen_dir).unwrap();
+        set_test_kitchen_dir(Some(kitchen_dir));
+
         let mut k = Kitchen {
             agents: vec![Agent {
                 id: "test".into(),
@@ -482,6 +505,8 @@ mod tests {
         };
         k.remove_agent(0).unwrap();
         assert!(k.agents.is_empty());
+
+        set_test_kitchen_dir(None);
     }
 
     #[test]

@@ -9,10 +9,10 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 
-use cook::config::{expand_path, Harness};
-use cook::item::{classify, items_for, Item, LinkState};
-use cook::ops::{link_item, unlink_item};
-use cook::{load_harnesses, repo_root};
+use kitchen::config::{expand_path, Harness};
+use kitchen::item::{classify, items_for, Item, LinkState};
+use kitchen::ops::{link_item, unlink_item};
+use kitchen::{load_harnesses, repo_root};
 
 enum Screen {
     Harnesses,
