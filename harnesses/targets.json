@@ -1,0 +1,43 @@
+{
+  "harnesses": [
+    {
+      "id": "cursor-user",
+      "label": "Cursor (user)",
+      "kinds": {
+        "skills": { "dir": "~/.cursor/skills", "mode": "dir" },
+        "rules": { "dir": "~/.cursor/rules", "mode": "file", "dest_ext": ".mdc" }
+      }
+    },
+    {
+      "id": "claude-user",
+      "label": "Claude (user)",
+      "kinds": {
+        "skills": { "dir": "~/.claude/skills", "mode": "dir" }
+      }
+    },
+    {
+      "id": "pi",
+      "label": "Pi",
+      "kinds": {
+        "extensions": { "dir": "~/.pi/agent/extensions", "mode": "file" }
+      }
+    },
+    {
+      "id": "cursor-project",
+      "label": "Cursor (project)",
+      "project": true,
+      "kinds": {
+        "skills": { "dir": ".cursor/skills", "mode": "dir" },
+        "rules": { "dir": ".cursor/rules", "mode": "file", "dest_ext": ".mdc" }
+      }
+    },
+    {
+      "id": "claude-project",
+      "label": "Claude (project)",
+      "project": true,
+      "kinds": {
+        "skills": { "dir": ".claude/skills", "mode": "dir" }
+      }
+    }
+  ]
+}

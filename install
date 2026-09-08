@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# install — first-time setup: rust toolchain, kitchen on PATH, shell hook for ~/.cargo/bin
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")" && pwd)"
+cd "$root"
+
+cargo_env='. "$HOME/.cargo/env"'
+cargo_bin_line='export PATH="$HOME/.cargo/bin:$PATH"'
+
+say() { printf '%s\n' "$*"; }
+err() { printf 'install: %s\n' "$*" >&2; }
+
+ensure_rust() {
+  if [[ -f "$HOME/.cargo/env" ]]; then
+    # shellcheck source=/dev/null
+    source "$HOME/.cargo/env"
+  fi
+  if command -v cargo >/dev/null 2>&1; then
+    return 0
+  fi
+  err "no cargo — installing rustup"
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  # shellcheck source=/dev/null
+  source "$HOME/.cargo/env"
+}
+
+profile_file() {
+  case "${SHELL:-}" in
+    */zsh) echo "$HOME/.zshrc" ;;
+    */bash)
+      if [[ -f "$HOME/.bash_profile" ]]; then
+        echo "$HOME/.bash_profile"
+      else
+        echo "$HOME/.bashrc"
+      fi
+      ;;
+    *) echo "$HOME/.profile" ;;
+  esac
+}
+
+ensure_path_hook() {
+  local profile
+  profile="$(profile_file)"
+  if [[ ! -f "$profile" ]]; then
+    touch "$profile"
+  fi
+  if grep -qF '. "$HOME/.cargo/env"' "$profile" 2>/dev/null \
+    || grep -qF "source \"\$HOME/.cargo/env\"" "$profile" 2>/dev/null; then
+    say "install: cargo env already in $profile"
+    return 0
+  fi
+  {
+    echo ""
+    echo "# rust / cargo (added by agents install)"
+    echo "$cargo_env"
+  } >>"$profile"
+  say "install: added cargo env to $profile"
+}
+
+build_and_install() {
+  say "install: cargo build"
+  cargo build
+  say "install: cargo install --path ."
+  cargo install --path . --force
+}
+
+verify() {
+  if command -v kitchen >/dev/null 2>&1; then
+    say "install: kitchen -> $(command -v kitchen)"
+    kitchen --version 2>/dev/null || kitchen --help | head -1
+    return 0
+  fi
+  if [[ -x "$HOME/.cargo/bin/kitchen" ]]; then
+    say "install: kitchen -> $HOME/.cargo/bin/kitchen"
+    say "install: open a new shell or: source $(profile_file)"
+    return 0
+  fi
+  err "kitchen not found after install"
+  exit 1
+}
+
+main() {
+  say "install: repo $root"
+  ensure_rust
+  ensure_path_hook
+  build_and_install
+  verify
+  say ""
+  say "done. open a new terminal, then:"
+  say "  kitchen cook"
+  say ""
+  say "reinstall after pulling: kitchen prep"
+}
+
+main "$@"
