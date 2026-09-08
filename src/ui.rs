@@ -10,6 +10,15 @@ use ratatui::{DefaultTerminal, Frame};
 
 use cook::kitchen::{read_log, Kitchen, Status};
 
+const EMPTY_KITCHEN: [&str; 6] = [
+    "stove's cold.  [s] spawn someone.",
+    "nothing cooking.  [s] spawn someone.",
+    "kitchen's empty.",
+    "no one's cooking.",
+    "we got no cooks.",
+    "someone get in here.  [s] spawn someone.",
+];
+
 const HEAT: Color = Color::Rgb(232, 140, 48);
 const BONE: Color = Color::Rgb(232, 226, 216);
 const SAGE: Color = Color::Rgb(138, 168, 122);
@@ -209,7 +218,7 @@ impl App {
                 if self.agent_idx().is_some() {
                     self.screen = Screen::Inspect;
                 } else {
-                    self.flash = "stove's cold. [s] spawn someone.".into();
+                    self.flash = empty_kitchen_msg().into();
                 }
             }
             KeyCode::Char('s') => {
@@ -230,7 +239,14 @@ impl App {
             KeyCode::Char('m') => {
                 if let Some(i) = self.agent_idx() {
                     match self.kitchen.toggle_autonomous(i) {
-                        Ok(()) => self.flash = "ok".into(),
+                        Ok(()) => {
+                            let a = &self.kitchen.agents[i];
+                            self.flash = if a.autonomous {
+                                "let him cook".into()
+                            } else {
+                                "hands back on".into()
+                            };
+                        }
                         Err(e) => self.flash = e.to_string(),
                     }
                 }
@@ -449,24 +465,64 @@ fn draw(frame: &mut Frame, app: &mut App) {
         );
     }
 
-    frame.render_widget(
-        Paragraph::new(help_for(app)).style(Style::default().fg(ASH)),
-        chunks[2],
-    );
+    frame.render_widget(help_line(app).style(Style::default().fg(ASH)), chunks[2]);
 }
 
-fn help_for(app: &App) -> &'static str {
+fn empty_kitchen_msg() -> &'static str {
+    let tick = chrono::Local::now().timestamp().unsigned_abs() as usize / 6;
+    EMPTY_KITCHEN[tick % EMPTY_KITCHEN.len()]
+}
+
+fn help_line(app: &App) -> Paragraph<'static> {
     if app.prompt.is_some() {
-        return "enter confirm   esc cancel";
+        return Paragraph::new("enter confirm   esc cancel");
     }
     match app.screen {
-        Screen::Kitchen => {
-            "[enter] inspect  [s] spawn  [t] ticket  [r] recipes  [p] pantry  [m] let him cook  [d] kill  [c] plate  [x] burnt  [q] quit"
+        Screen::Kitchen => kitchen_help(app),
+        Screen::Inspect => Paragraph::new(
+            "[esc] kitchen  [m] let him cook  [c] plate  [t] ticket  [d] kill  [q] quit",
+        ),
+        Screen::Recipes => {
+            Paragraph::new("[esc] kitchen  [n] new  [a] apply  [D] delete  [q] quit")
         }
-        Screen::Inspect => "[esc] kitchen  [t] ticket  [m] let him cook  [p] pantry  [d] kill  [q] quit",
-        Screen::Recipes => "[esc] kitchen  [n] new  [a] apply to agent  [D] delete  [q] quit",
-        Screen::Pantry => "[esc] kitchen  tab column  [a] attach to agent  [q] quit",
+        Screen::Pantry => Paragraph::new("[esc] kitchen  tab column  [a] attach  [q] quit"),
     }
+}
+
+fn kitchen_help(app: &App) -> Paragraph<'static> {
+    if app.agent_idx().is_some() {
+        Paragraph::new(Line::from(vec![Span::raw(
+            "j/k  [enter] inspect  [t] ticket  [d] kill  [x] burnt  [r] recipes  [q] quit",
+        )]))
+    } else {
+        Paragraph::new("[s] spawn  [r] recipes  [p] pantry  [q] quit")
+    }
+}
+
+fn selected_action_row(app: &App) -> Option<Line<'static>> {
+    let i = app.agent_idx()?;
+    let a = app.kitchen.agents.get(i)?;
+    let name = a.name.clone();
+    let cook_label = if a.autonomous {
+        Span::styled("[m] hands back on", Style::default().fg(ASH))
+    } else {
+        Span::styled(
+            "[m] LET HIM COOK",
+            Style::default().fg(HEAT).add_modifier(Modifier::BOLD),
+        )
+    };
+    Some(Line::from(vec![
+        Span::styled("→ ", Style::default().fg(ASH)),
+        Span::styled(name, Style::default().fg(BONE).add_modifier(Modifier::BOLD)),
+        Span::raw("   "),
+        Span::styled("🍳 ", Style::default().fg(HEAT)),
+        cook_label,
+        Span::raw("   "),
+        Span::styled(
+            "[c] plate",
+            Style::default().fg(SAGE).add_modifier(Modifier::BOLD),
+        ),
+    ]))
 }
 
 fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -478,11 +534,21 @@ fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let body = Layout::vertical([Constraint::Min(3), Constraint::Length(2)]).split(inner);
+    let show_actions = app.agent_idx().is_some();
+    let body = if show_actions {
+        Layout::vertical([
+            Constraint::Min(3),
+            Constraint::Length(1),
+            Constraint::Length(2),
+        ])
+        .split(inner)
+    } else {
+        Layout::vertical([Constraint::Min(3), Constraint::Length(2)]).split(inner)
+    };
 
     let items: Vec<ListItem> = if app.kitchen.agents.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
-            "stove's cold.  [s] spawn someone.",
+            empty_kitchen_msg(),
             Style::default().fg(ASH).add_modifier(Modifier::ITALIC),
         )))]
     } else {
@@ -498,18 +564,25 @@ fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
         .highlight_symbol("");
     frame.render_stateful_widget(list, body[0], &mut app.agent_list);
 
+    let stats_idx = if show_actions { 2 } else { 1 };
+    if show_actions {
+        if let Some(row) = selected_action_row(app) {
+            frame.render_widget(Paragraph::new(row), body[1]);
+        }
+    }
+
     let (sk, ru) = (app.skills.len(), app.rules.len());
     let rec = app.kitchen.recipes.len();
     let stats = format!("Skills: {sk:<4}  Rules: {ru:<4}  Recipes: {rec}");
     frame.render_widget(
         Paragraph::new(vec![
             Line::from(Span::styled(
-                "─".repeat(body[1].width as usize),
+                "─".repeat(body[stats_idx].width as usize),
                 Style::default().fg(ASH),
             )),
             Line::from(Span::styled(stats, Style::default().fg(ASH))),
         ]),
-        body[1],
+        body[stats_idx],
     );
 }
 
@@ -555,6 +628,34 @@ fn draw_inspect(frame: &mut Frame, app: &App, area: Rect) {
         .constraints([Constraint::Percentage(48), Constraint::Percentage(52)])
         .split(area);
 
+    let action = if a.autonomous {
+        Line::from(vec![
+            Span::styled(
+                "🍳 LET HIM COOK",
+                Style::default().fg(HEAT).add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(" — hands off    "),
+            Span::styled("[m] take back", Style::default().fg(ASH)),
+            Span::raw("    "),
+            Span::styled(
+                "[c] plate",
+                Style::default().fg(SAGE).add_modifier(Modifier::BOLD),
+            ),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled(
+                "[m] LET HIM COOK",
+                Style::default().fg(HEAT).add_modifier(Modifier::BOLD),
+            ),
+            Span::raw("    "),
+            Span::styled(
+                "[c] plate",
+                Style::default().fg(SAGE).add_modifier(Modifier::BOLD),
+            ),
+        ])
+    };
+
     let recipe = a.recipe.as_deref().unwrap_or("—");
     let skills = if a.skills.is_empty() {
         "—".into()
@@ -567,19 +668,19 @@ fn draw_inspect(frame: &mut Frame, app: &App, area: Rect) {
         a.rules.join(", ")
     };
     let task = a.task.as_deref().unwrap_or("Idle");
-    let auto = if a.autonomous { "yes" } else { "no" };
     let meta = vec![
         Line::from(Span::styled(
             a.name.clone(),
             Style::default().fg(BONE).add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
+        action,
+        Line::from(""),
         kv("status", a.status.label(a.autonomous)),
         kv("task", task),
         kv("recipe", recipe),
         kv("skills", &skills),
         kv("rules", &rules),
-        kv("let him cook", auto),
         Line::from(""),
         Line::from(Span::styled(
             "status is local until a runtime is wired",
