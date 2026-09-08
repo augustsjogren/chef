@@ -545,12 +545,22 @@ fn run_app(terminal: &mut DefaultTerminal) -> Result<()> {
 }
 
 fn draw(frame: &mut Frame, app: &mut App) {
+    let inner = Layout::vertical([Constraint::Percentage(100)])
+        .margin(2)
+        .split(frame.area())[0];
+
+    let main_h = match app.screen {
+        Screen::Kitchen => kitchen_panel_height(app),
+        _ => inner.height.saturating_sub(3).min(inner.height * 2 / 3),
+    };
+
     let chunks = Layout::vertical([
-        Constraint::Min(8),
+        Constraint::Length(main_h),
+        Constraint::Min(0),
         Constraint::Length(1),
         Constraint::Length(1),
     ])
-    .split(frame.area());
+    .split(inner);
 
     match app.screen {
         Screen::Kitchen => draw_kitchen(frame, app, chunks[0]),
@@ -569,19 +579,32 @@ fn draw(frame: &mut Frame, app: &mut App) {
         frame.render_widget(
             Paragraph::new(format!("{title}: {}", app.input))
                 .style(Style::default().fg(theme::heat())),
-            chunks[1],
+            chunks[2],
         );
-    } else {
+    } else if !app.flash.is_empty() {
         frame.render_widget(
             Paragraph::new(truncate(&app.flash, 120)).style(Style::default().fg(theme::muted())),
-            chunks[1],
+            chunks[2],
         );
     }
 
     frame.render_widget(
         help_line(app).style(Style::default().fg(theme::muted())),
-        chunks[2],
+        chunks[3],
     );
+}
+
+/// Kitchen panel height from roster size — avoids a full-terminal empty box.
+fn kitchen_panel_height(app: &App) -> u16 {
+    let agents = app.kitchen.agents.len();
+    let list_rows = agents.max(1) as u16;
+    let actions = if app.agent_idx().is_some() && agents > 0 {
+        1
+    } else {
+        0
+    };
+    // borders + summary + list + optional action row + stats (rule + counts)
+    2 + 1 + list_rows + actions + 2
 }
 
 fn empty_kitchen_msg() -> &'static str {
@@ -657,14 +680,33 @@ fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
     let show_actions = app.agent_idx().is_some();
     let body = if show_actions {
         Layout::vertical([
-            Constraint::Min(3),
+            Constraint::Length(1),
+            Constraint::Min(1),
             Constraint::Length(1),
             Constraint::Length(2),
         ])
         .split(inner)
     } else {
-        Layout::vertical([Constraint::Min(3), Constraint::Length(2)]).split(inner)
+        Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Min(1),
+            Constraint::Length(2),
+        ])
+        .split(inner)
     };
+
+    frame.render_widget(
+        Paragraph::new(app.kitchen.line_summary()).style(
+            Style::default()
+                .fg(theme::muted())
+                .add_modifier(Modifier::ITALIC),
+        ),
+        body[0],
+    );
+
+    let list_idx = 1usize;
+    let stats_idx = if show_actions { 3 } else { 2 };
+    let action_idx = if show_actions { Some(2) } else { None };
 
     let items: Vec<ListItem> = if app.kitchen.agents.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
@@ -684,12 +726,11 @@ fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
     let list = List::new(items)
         .highlight_style(theme::highlight())
         .highlight_symbol("");
-    frame.render_stateful_widget(list, body[0], &mut app.agent_list);
+    frame.render_stateful_widget(list, body[list_idx], &mut app.agent_list);
 
-    let stats_idx = if show_actions { 2 } else { 1 };
-    if show_actions {
+    if let Some(idx) = action_idx {
         if let Some(row) = selected_action_row(app) {
-            frame.render_widget(Paragraph::new(row), body[1]);
+            frame.render_widget(Paragraph::new(row), body[idx]);
         }
     }
 
@@ -723,12 +764,18 @@ fn agent_line(a: &kitchen::kitchen::Agent) -> Line<'static> {
     let name_style = if hot { theme::ink_bold() } else { theme::ink() };
     let task = a.task.as_deref().unwrap_or("Idle").to_string();
     let label = format!("{:<14}", a.status.label(a.autonomous));
+    let recipe = a.recipe.as_deref().unwrap_or("—");
+    let recipe = truncate(recipe, 16);
     Line::from(vec![
         Span::styled(format!("{} ", a.status.bullet()), status_style),
         Span::styled(format!("{:<16}", a.name), name_style),
         Span::styled(
             format!("{} {}  ", a.status.glyph(a.autonomous), label),
             status_style,
+        ),
+        Span::styled(
+            format!("{:<16}  ", recipe),
+            Style::default().fg(theme::muted()),
         ),
         Span::styled(
             task,

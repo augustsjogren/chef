@@ -124,6 +124,39 @@ impl Kitchen {
         Ok((list_names("skills")?, list_names("rules")?))
     }
 
+    /// One-line roster summary for the kitchen TUI header.
+    pub fn line_summary(&self) -> String {
+        if self.agents.is_empty() {
+            return "stove's cold".into();
+        }
+        let mut raw = 0usize;
+        let mut cooking = 0usize;
+        let mut cooked = 0usize;
+        let mut burnt = 0usize;
+        for a in &self.agents {
+            match a.status {
+                Status::Raw => raw += 1,
+                Status::Cooking => cooking += 1,
+                Status::Cooked => cooked += 1,
+                Status::Burnt => burnt += 1,
+            }
+        }
+        let mut parts = Vec::new();
+        if raw > 0 {
+            parts.push(format!("{raw} raw"));
+        }
+        if cooking > 0 {
+            parts.push(format!("{cooking} cooking"));
+        }
+        if cooked > 0 {
+            parts.push(format!("{cooked} cooked"));
+        }
+        if burnt > 0 {
+            parts.push(format!("{burnt} burnt"));
+        }
+        parts.join(" · ")
+    }
+
     pub fn spawn(&mut self, name: &str, task: Option<String>) -> Result<String> {
         let name = name.trim();
         anyhow::ensure!(!name.is_empty(), "name required");
@@ -481,6 +514,44 @@ mod tests {
     fn slug_strips_noise() {
         assert_eq!(slug("Front End!!"), "front-end");
         assert_eq!(slug("@@@"), "cook");
+    }
+
+    #[test]
+    fn line_summary_counts_by_status() {
+        let k = Kitchen {
+            agents: vec![
+                Agent {
+                    id: "a".into(),
+                    name: "a".into(),
+                    status: Status::Cooking,
+                    task: None,
+                    recipe: None,
+                    skills: vec![],
+                    rules: vec![],
+                    autonomous: false,
+                },
+                Agent {
+                    id: "b".into(),
+                    name: "b".into(),
+                    status: Status::Cooked,
+                    task: None,
+                    recipe: None,
+                    skills: vec![],
+                    rules: vec![],
+                    autonomous: false,
+                },
+            ],
+            recipes: vec![],
+        };
+        assert_eq!(k.line_summary(), "1 cooking · 1 cooked");
+        assert_eq!(
+            Kitchen {
+                agents: vec![],
+                recipes: vec![],
+            }
+            .line_summary(),
+            "stove's cold"
+        );
     }
 
     #[test]
