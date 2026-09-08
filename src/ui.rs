@@ -1,5 +1,7 @@
 //! Kitchen TUI. Cooking words are labels; navigation stays boring and fast.
 
+use std::time::Duration;
+
 use anyhow::{Context, Result};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -9,6 +11,7 @@ use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Paragraph, 
 use ratatui::{DefaultTerminal, Frame};
 
 use kitchen::kitchen::{read_log, Kitchen, Status};
+use kitchen::stove::{self, Burner, BurnerStatus, Heat};
 
 use crate::theme;
 
@@ -27,6 +30,7 @@ enum Screen {
     Inspect,
     Recipes,
     Pantry,
+    Stove,
 }
 
 enum Prompt {
@@ -48,6 +52,8 @@ struct App {
     recipe_list: ListState,
     skill_list: ListState,
     rule_list: ListState,
+    burner_list: ListState,
+    stove: Vec<BurnerStatus>,
     pantry_col: PantryCol,
     skills: Vec<String>,
     rules: Vec<String>,
@@ -76,6 +82,11 @@ impl App {
         if !rules.is_empty() {
             rule_list.select(Some(0));
         }
+        let stove = stove::status_all()?;
+        let mut burner_list = ListState::default();
+        if !stove.is_empty() {
+            burner_list.select(Some(0));
+        }
         Ok(Self {
             kitchen,
             screen: Screen::Kitchen,
@@ -83,6 +94,8 @@ impl App {
             recipe_list,
             skill_list,
             rule_list,
+            burner_list,
+            stove,
             pantry_col: PantryCol::Skills,
             skills,
             rules,
@@ -116,6 +129,42 @@ impl App {
         }
         let idx = idx.min(self.kitchen.recipes.len() - 1);
         self.recipe_list.select(Some(idx));
+    }
+
+    fn refresh_stove(&mut self) -> Result<()> {
+        self.stove = stove::status_all()?;
+        if self.stove.is_empty() {
+            self.burner_list.select(None);
+        } else if self.burner_list.selected().is_none() {
+            self.burner_list.select(Some(0));
+        } else {
+            let i = self
+                .burner_list
+                .selected()
+                .unwrap_or(0)
+                .min(self.stove.len() - 1);
+            self.burner_list.select(Some(i));
+        }
+        Ok(())
+    }
+
+    fn burner_idx(&self) -> Option<usize> {
+        self.burner_list.selected()
+    }
+
+    fn selected_burner(&self) -> Option<Burner> {
+        self.burner_idx()
+            .and_then(|i| self.stove.get(i))
+            .map(|s| s.burner)
+    }
+
+    fn select_burner(&mut self, idx: usize) {
+        if self.stove.is_empty() {
+            self.burner_list.select(None);
+            return;
+        }
+        let idx = idx.min(self.stove.len() - 1);
+        self.burner_list.select(Some(idx));
     }
 
     fn refresh_pantry(&mut self) -> Result<()> {
@@ -181,6 +230,7 @@ impl App {
             Screen::Inspect => self.handle_inspect(key),
             Screen::Recipes => self.handle_recipes(key),
             Screen::Pantry => self.handle_pantry(key),
+            Screen::Stove => self.handle_stove(key),
         }
     }
 
@@ -274,6 +324,10 @@ impl App {
                 self.refresh_pantry()?;
                 self.screen = Screen::Pantry;
             }
+            KeyCode::Char('o') => {
+                self.refresh_stove()?;
+                self.screen = Screen::Stove;
+            }
             KeyCode::Char('m') => {
                 if let Some(i) = self.agent_idx() {
                     self.toggle_autonomous(i);
@@ -341,6 +395,10 @@ impl App {
             KeyCode::Char('p') => {
                 self.refresh_pantry()?;
                 self.screen = Screen::Pantry;
+            }
+            KeyCode::Char('o') => {
+                self.refresh_stove()?;
+                self.screen = Screen::Stove;
             }
             KeyCode::Char('c') => {
                 if let Some(i) = self.agent_idx() {
@@ -430,6 +488,58 @@ impl App {
             KeyCode::Down | KeyCode::Char('j') => self.move_pantry(1),
             KeyCode::Char('a') | KeyCode::Enter => self.pantry_attach()?,
             KeyCode::Char('-') => self.pantry_detach()?,
+            _ => {}
+        }
+        Ok(false)
+    }
+
+    fn stove_simmer(&mut self) -> Result<()> {
+        match self.selected_burner() {
+            Some(b) => match stove::simmer(b) {
+                Ok(msg) => {
+                    self.refresh_stove()?;
+                    self.flash = msg;
+                }
+                Err(e) => {
+                    self.refresh_stove()?;
+                    self.flash = e.to_string();
+                }
+            },
+            None => self.flash = "pick a burner".into(),
+        }
+        Ok(())
+    }
+
+    fn handle_stove(&mut self, key: KeyEvent) -> Result<bool> {
+        match key.code {
+            KeyCode::Char('q') => return Ok(true),
+            KeyCode::Esc | KeyCode::Char('b') => self.screen = Screen::Kitchen,
+            KeyCode::Up | KeyCode::Char('k') => {
+                let i = self.burner_idx().unwrap_or(0).saturating_sub(1);
+                self.select_burner(i);
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                let i = self.burner_idx().unwrap_or(0).saturating_add(1);
+                self.select_burner(i);
+            }
+            KeyCode::Enter | KeyCode::Char('s') => self.stove_simmer()?,
+            KeyCode::Char('c') => match self.selected_burner() {
+                Some(b) => match stove::cool(b) {
+                    Ok(msg) => {
+                        self.refresh_stove()?;
+                        self.flash = msg;
+                    }
+                    Err(e) => {
+                        self.refresh_stove()?;
+                        self.flash = e.to_string();
+                    }
+                },
+                None => self.flash = "pick a burner".into(),
+            },
+            KeyCode::Char('r') => {
+                self.refresh_stove()?;
+                self.flash = "stove checked".into();
+            }
             _ => {}
         }
         Ok(false)
@@ -534,7 +644,18 @@ pub fn run() -> Result<()> {
 fn run_app(terminal: &mut DefaultTerminal) -> Result<()> {
     let mut app = App::new()?;
     loop {
+        if app.screen == Screen::Stove {
+            app.refresh_stove()?;
+        }
         terminal.draw(|frame| draw(frame, &mut app))?;
+        let tick = if app.screen == Screen::Stove {
+            Duration::from_millis(500)
+        } else {
+            Duration::from_secs(60 * 60)
+        };
+        if !event::poll(tick)? {
+            continue;
+        }
         if let Event::Key(key) = event::read()? {
             if app.handle(key)? {
                 break;
@@ -567,6 +688,7 @@ fn draw(frame: &mut Frame, app: &mut App) {
         Screen::Inspect => draw_inspect(frame, app, chunks[0]),
         Screen::Recipes => draw_recipes(frame, app, chunks[0]),
         Screen::Pantry => draw_pantry(frame, app, chunks[0]),
+        Screen::Stove => draw_stove(frame, app, chunks[0]),
     }
 
     if let Some(prompt) = &app.prompt {
@@ -625,16 +747,19 @@ fn help_line(app: &App) -> Paragraph<'static> {
             Paragraph::new("[esc] kitchen  [n] new  [a] apply  [D] delete  [q] quit")
         }
         Screen::Pantry => Paragraph::new("[esc] kitchen  tab column  [a] attach  [-] detach  [q] quit"),
+        Screen::Stove => {
+            Paragraph::new("[esc] kitchen  [enter]/[s] simmer  [c] cool  [r] refresh  [q] quit")
+        }
     }
 }
 
 fn kitchen_help(app: &App) -> Paragraph<'static> {
     if app.agent_idx().is_some() {
         Paragraph::new(Line::from(vec![Span::raw(
-            "j/k  [enter] inspect  [t] ticket  [p] pantry  [d] stop  [D] dismiss  [x] burnt  [r] recipes  [q] quit",
+            "j/k  [enter] inspect  [t] ticket  [p] pantry  [o] stove  [d] stop  [D] dismiss  [x] burnt  [r] recipes  [q] quit",
         )]))
     } else {
-        Paragraph::new("[s] spawn  [r] recipes  [p] pantry  [q] quit")
+        Paragraph::new("[s] spawn  [r] recipes  [p] pantry  [o] stove  [q] quit")
     }
 }
 
@@ -903,6 +1028,17 @@ fn kv<'a>(k: &'a str, v: &'a str) -> Line<'a> {
     ])
 }
 
+fn kv_owned(k: &str, v: String) -> Line<'static> {
+    kv_styled(k, v, theme::ink())
+}
+
+fn kv_styled(k: &str, v: String, v_style: Style) -> Line<'static> {
+    Line::from(vec![
+        Span::styled(format!("{k:<14}"), Style::default().fg(theme::muted())),
+        Span::styled(v, v_style),
+    ])
+}
+
 fn draw_recipes(frame: &mut Frame, app: &mut App, area: Rect) {
     let cols = Layout::default()
         .direction(Direction::Horizontal)
@@ -1039,10 +1175,118 @@ fn draw_pantry(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_stateful_widget(rules, cols[1], &mut app.rule_list);
 }
 
+fn draw_stove(frame: &mut Frame, app: &mut App, area: Rect) {
+    let cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(38), Constraint::Percentage(62)])
+        .split(area);
+
+    let items: Vec<ListItem> = app
+        .stove
+        .iter()
+        .map(|s| ListItem::new(burner_line(s)))
+        .collect();
+    let list = List::new(items)
+        .block(
+            Block::bordered()
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(theme::muted()))
+                .title(" STOVE "),
+        )
+        .highlight_style(theme::highlight());
+    frame.render_stateful_widget(list, cols[0], &mut app.burner_list);
+
+    let detail = if let Some(st) = app.burner_idx().and_then(|i| app.stove.get(i)) {
+        burner_detail(st)
+    } else {
+        vec![Line::from(Span::styled(
+            "local model servers — MLX and Ollama.",
+            Style::default().fg(theme::muted()),
+        ))]
+    };
+    frame.render_widget(
+        Paragraph::new(detail).wrap(Wrap { trim: true }).block(
+            Block::bordered()
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(theme::muted()))
+                .title(" BURNER "),
+        ),
+        cols[1],
+    );
+}
+
+fn burner_line(st: &BurnerStatus) -> Line<'static> {
+    let heat = st.heat();
+    let heat_style = match heat {
+        Heat::Simmering => Style::default().fg(theme::heat()),
+        Heat::Warming => Style::default()
+            .fg(theme::heat())
+            .add_modifier(Modifier::ITALIC),
+        Heat::Cold => Style::default().fg(theme::muted()),
+    };
+    Line::from(vec![
+        Span::styled(format!("{:<8}", st.burner.label()), theme::ink_bold()),
+        Span::raw("  "),
+        Span::styled(format!("{:<10}", heat.label()), heat_style),
+        Span::styled(
+            format!(":{}", st.port),
+            Style::default().fg(theme::muted()),
+        ),
+    ])
+}
+
+fn burner_detail(st: &BurnerStatus) -> Vec<Line<'static>> {
+    let heat = st.heat();
+    let heat_style = match heat {
+        Heat::Simmering => Style::default().fg(theme::heat()),
+        Heat::Warming => Style::default()
+            .fg(theme::heat())
+            .add_modifier(Modifier::ITALIC),
+        Heat::Cold => Style::default().fg(theme::muted()),
+    };
+    let pid = st.pid.map(|p| p.to_string()).unwrap_or_else(|| "—".into());
+    let owner = match heat {
+        Heat::Cold => "—".to_string(),
+        _ if st.managed => "kitchen".to_string(),
+        _ => "external".to_string(),
+    };
+    let url = format!("127.0.0.1:{}", st.port);
+    let log = ellipsize_path(&stove::log_path(st.burner), 40);
+    vec![
+        Line::from(Span::styled(st.burner.label(), theme::ink_bold())),
+        Line::from(""),
+        kv_styled("heat", heat.label().to_string(), heat_style),
+        kv_owned("port", st.port.to_string()),
+        kv_owned("pid", pid),
+        kv_owned("started by", owner),
+        kv_owned("url", url),
+        kv_styled("log", log, Style::default().fg(theme::muted())),
+    ]
+}
+
 fn truncate(s: &str, max: usize) -> &str {
     if s.chars().count() <= max {
         s
     } else {
         &s[..s.char_indices().nth(max).map(|(i, _)| i).unwrap_or(s.len())]
     }
+}
+
+fn ellipsize_path(path: &std::path::Path, max: usize) -> String {
+    let raw = shorten_home(path);
+    if raw.chars().count() <= max {
+        return raw;
+    }
+    let keep = max.saturating_sub(1);
+    format!("{}…", truncate(&raw, keep))
+}
+
+fn shorten_home(path: &std::path::Path) -> String {
+    let s = path.display().to_string();
+    if let Ok(home) = std::env::var("HOME") {
+        if let Some(rest) = s.strip_prefix(&home) {
+            return format!("~{rest}");
+        }
+    }
+    s
 }

@@ -26,7 +26,11 @@ kitchen cook       # TUI
 kitchen cook <agent> <task>   # assign ticket (local state until runtime wired)
 kitchen dismiss <agent>       # remove from roster
 kitchen serve      # symlink pantry into Cursor / Claude / Pi
+kitchen stove simmer mlx    # start MLX Qwen server
+kitchen stove cool mlx      # stop MLX server
 kitchen prep       # rebuild after pulling
+./dev cook         # hack without prep (cargo run)
+kitchen dev -w cook  # auto-rebuild on save
 ```
 
 Dest paths for symlinks: `harnesses/targets.json`.

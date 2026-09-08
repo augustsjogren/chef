@@ -13,13 +13,14 @@ use kitchen::config::{expand_path, harness_by_id, load_harnesses, repo_root};
 use kitchen::item::{classify, items_for};
 use kitchen::kitchen::Kitchen;
 use kitchen::ops::{link_item, unlink_item};
+use kitchen::stove::{cool, print_status, simmer, Burner};
 
 #[derive(Parser)]
 #[command(
     name = "kitchen",
     version,
     about = "Kitchen CLI — pantry, recipes, and the line.",
-    after_help = "Examples:\n  kitchen cook\n  kitchen cook frontend Fix accessibility\n  kitchen prep\n  kitchen serve"
+    after_help = "Examples:\n  kitchen cook\n  kitchen cook frontend Fix accessibility\n  kitchen prep\n  kitchen serve\n  kitchen stove simmer mlx"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -52,6 +53,20 @@ enum Cmd {
         #[command(subcommand)]
         cmd: Option<ServeCmd>,
     },
+    /// Local model servers on the stove (MLX, Ollama)
+    Stove {
+        #[command(subcommand)]
+        cmd: Option<StoveCmd>,
+    },
+    /// Run from repo source (`cargo run`) — no `kitchen prep` between edits
+    Dev {
+        /// Rebuild and rerun when sources change (needs `cargo install cargo-watch`)
+        #[arg(long, short)]
+        watch: bool,
+        /// kitchen subcommand and args (default: cook TUI)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -60,6 +75,14 @@ enum ServeCmd {
     Harnesses,
     Link { harness: String },
     Unlink { harness: String },
+}
+
+#[derive(Subcommand)]
+enum StoveCmd {
+    /// Bring a burner up to heat (start server)
+    Simmer { burner: String },
+    /// Take a burner off the heat (stop server)
+    Cool { burner: String },
 }
 
 fn main() -> Result<()> {
@@ -102,6 +125,8 @@ fn main() -> Result<()> {
         Some(Cmd::Status) => print_kitchen(),
         Some(Cmd::Dismiss { agent }) => dismiss_agent(&agent),
         Some(Cmd::Serve { project, cmd }) => serve(project, cmd),
+        Some(Cmd::Stove { cmd }) => stove(cmd),
+        Some(Cmd::Dev { watch, args }) => dev(watch, args),
     }
 }
 
@@ -118,6 +143,56 @@ fn prep() -> Result<()> {
     cargo(&root, &["build"])?;
     cargo(&root, &["install", "--path", ".", "--force"])?;
     eprintln!("prep: `kitchen` is on PATH (need ~/.cargo/bin in PATH)");
+    eprintln!("prep: hacking? use `./dev` or `kitchen dev` — skips install");
+    Ok(())
+}
+
+fn dev(watch: bool, args: Vec<String>) -> Result<()> {
+    let root = repo_root();
+    if watch {
+        dev_watch(&root, &args)?;
+    } else {
+        dev_run(&root, &args)?;
+    }
+    Ok(())
+}
+
+fn dev_run(root: &std::path::Path, args: &[String]) -> Result<()> {
+    let mut cmd = Command::new("cargo");
+    cmd.current_dir(root).args(["run", "--quiet", "--"]);
+    if !args.is_empty() {
+        cmd.args(args);
+    }
+    let status = cmd.status().context("cargo run")?;
+    if !status.success() {
+        bail!("cargo run failed");
+    }
+    Ok(())
+}
+
+fn dev_watch(root: &std::path::Path, args: &[String]) -> Result<()> {
+    if !Command::new("cargo")
+        .arg("watch")
+        .arg("--version")
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+    {
+        bail!("cargo-watch not installed — run: cargo install cargo-watch");
+    }
+    let x = if args.is_empty() {
+        "run --quiet --".to_string()
+    } else {
+        format!("run --quiet -- {}", args.join(" "))
+    };
+    let status = Command::new("cargo")
+        .current_dir(root)
+        .args(["watch", "--quiet", "-x", &x])
+        .status()
+        .context("cargo watch")?;
+    if !status.success() {
+        bail!("cargo watch failed");
+    }
     Ok(())
 }
 
@@ -222,6 +297,20 @@ fn print_serve_status(h: &kitchen::Harness, project: Option<&std::path::Path>) -
         );
     }
     Ok(())
+}
+
+fn stove(cmd: Option<StoveCmd>) -> Result<()> {
+    match cmd {
+        None => print_status(),
+        Some(StoveCmd::Simmer { burner }) => {
+            println!("{}", simmer(Burner::parse(&burner)?)?);
+            Ok(())
+        }
+        Some(StoveCmd::Cool { burner }) => {
+            println!("{}", cool(Burner::parse(&burner)?)?);
+            Ok(())
+        }
+    }
 }
 
 fn apply(id: &str, project: Option<&std::path::Path>, link: bool) -> Result<()> {

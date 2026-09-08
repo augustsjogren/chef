@@ -35,6 +35,8 @@ kitchen serve                       # symlink pantry into Cursor / Claude / Pi
 
 After pulling code: `kitchen prep` (rebuild + reinstall). Agent state lives in `.kitchen/` (local).
 
+**Hacking this repo:** skip `prep` between edits — run `./dev cook`, `./dev stove`, or `kitchen dev cook` (`cargo run` rebuilds only when needed). Auto-rebuild on save: `kitchen dev -w cook` (install [cargo-watch](https://github.com/watchexec/cargo-watch) once).
+
 Set `KITCHEN_ROOT` to point at this repo if you run `kitchen` from elsewhere.
 
 ## CLI
@@ -47,8 +49,15 @@ Set `KITCHEN_ROOT` to point at this repo if you run `kitchen` from elsewhere.
 | `kitchen status` | Print roster + pantry counts |
 | `kitchen dismiss <agent>` | Remove agent from roster (logs kept) |
 | `kitchen prep` | `cargo build` + `cargo install --path .` |
+| `kitchen dev [args…]` | Run from source (`cargo run`) — no install step |
+| `kitchen dev -w cook` | Auto-rebuild on save (needs `cargo-watch`) |
 | `kitchen serve` | Harness symlink TUI |
 | `kitchen serve link <harness>` | Link all pantry items to one harness |
+| `kitchen stove` | MLX + Ollama burner status |
+| `kitchen stove simmer mlx` | Start MLX server (`:8080`) |
+| `kitchen stove simmer ollama` | Start Ollama (`:11434`) |
+| `kitchen stove cool mlx` | Stop MLX server |
+| `kitchen stove cool ollama` | Stop Ollama |
 
 ## TUI
 
@@ -62,7 +71,7 @@ A **ticket** is the task string on an agent — free text like `fix login page`.
 | `COOKED` | finished |
 | `BURNT` | failed |
 
-Keys: `[enter]` inspect · `[s]` spawn · `[t]` ticket · `[m]` let him cook · `[d]` stop · `[D]` / Delete dismiss · `[c]` plate · `[x]` burnt · `[r]` recipes · `[p]` pantry · `[q]` quit. `j`/`k` move. Pantry: `[a]` attach · `[-]` detach.
+Keys: `[enter]` inspect · `[s]` spawn · `[t]` ticket · `[m]` let him cook · `[d]` stop · `[D]` / Delete dismiss · `[c]` plate · `[x]` burnt · `[r]` recipes · `[p]` pantry · `[o]` stove · `[q]` quit. `j`/`k` move. Pantry: `[a]` attach · `[-]` detach. Stove: `[enter]`/`[s]` simmer · `[c]` cool · `[r]` refresh.
 
 Kitchen state is local only — no live Pi/Cursor process yet.
 
