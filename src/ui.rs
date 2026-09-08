@@ -3,12 +3,14 @@
 use anyhow::{Context, Result};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
 
 use cook::kitchen::{read_log, Kitchen, Status};
+
+use crate::theme;
 
 const EMPTY_KITCHEN: [&str; 6] = [
     "stove's cold.  [s] spawn someone.",
@@ -18,12 +20,6 @@ const EMPTY_KITCHEN: [&str; 6] = [
     "we got no cooks.",
     "someone get in here.  [s] spawn someone.",
 ];
-
-const HEAT: Color = Color::Rgb(232, 140, 48);
-const BONE: Color = Color::Rgb(232, 226, 216);
-const SAGE: Color = Color::Rgb(138, 168, 122);
-const CHAR: Color = Color::Rgb(196, 72, 48);
-const ASH: Color = Color::Rgb(120, 118, 112);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Screen {
@@ -549,7 +545,6 @@ fn run_app(terminal: &mut DefaultTerminal) -> Result<()> {
 }
 
 fn draw(frame: &mut Frame, app: &mut App) {
-    let bone = Style::default().fg(BONE);
     let chunks = Layout::vertical([
         Constraint::Min(8),
         Constraint::Length(1),
@@ -572,17 +567,21 @@ fn draw(frame: &mut Frame, app: &mut App) {
             Prompt::RecipeName => "recipe name (copies selected agent pantry)",
         };
         frame.render_widget(
-            Paragraph::new(format!("{title}: {}", app.input)).style(bone.fg(HEAT)),
+            Paragraph::new(format!("{title}: {}", app.input))
+                .style(Style::default().fg(theme::heat())),
             chunks[1],
         );
     } else {
         frame.render_widget(
-            Paragraph::new(truncate(&app.flash, 120)).style(Style::default().fg(ASH)),
+            Paragraph::new(truncate(&app.flash, 120)).style(Style::default().fg(theme::muted())),
             chunks[1],
         );
     }
 
-    frame.render_widget(help_line(app).style(Style::default().fg(ASH)), chunks[2]);
+    frame.render_widget(
+        help_line(app).style(Style::default().fg(theme::muted())),
+        chunks[2],
+    );
 }
 
 fn empty_kitchen_msg() -> &'static str {
@@ -621,23 +620,27 @@ fn selected_action_row(app: &App) -> Option<Line<'static>> {
     let a = app.kitchen.agents.get(i)?;
     let name = a.name.clone();
     let cook_label = if a.autonomous {
-        Span::styled("[m] hands back on", Style::default().fg(ASH))
+        Span::styled("[m] hands back on", Style::default().fg(theme::muted()))
     } else {
         Span::styled(
             "[m] LET HIM COOK",
-            Style::default().fg(HEAT).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme::heat())
+                .add_modifier(Modifier::BOLD),
         )
     };
     Some(Line::from(vec![
-        Span::styled("→ ", Style::default().fg(ASH)),
-        Span::styled(name, Style::default().fg(BONE).add_modifier(Modifier::BOLD)),
+        Span::styled("→ ", Style::default().fg(theme::muted())),
+        Span::styled(name, theme::ink_bold()),
         Span::raw("   "),
-        Span::styled("🍳 ", Style::default().fg(HEAT)),
+        Span::styled("🍳 ", Style::default().fg(theme::heat())),
         cook_label,
         Span::raw("   "),
         Span::styled(
             "[c] plate",
-            Style::default().fg(SAGE).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme::sage())
+                .add_modifier(Modifier::BOLD),
         ),
     ]))
 }
@@ -645,9 +648,9 @@ fn selected_action_row(app: &App) -> Option<Line<'static>> {
 fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
     let block = Block::bordered()
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(ASH))
+        .border_style(Style::default().fg(theme::muted()))
         .title(" KITCHEN ")
-        .title_style(Style::default().fg(BONE).add_modifier(Modifier::BOLD));
+        .title_style(theme::ink_bold());
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -666,7 +669,7 @@ fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
     let items: Vec<ListItem> = if app.kitchen.agents.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
             empty_kitchen_msg(),
-            Style::default().fg(ASH).add_modifier(Modifier::ITALIC),
+            Style::default().fg(theme::muted()).add_modifier(Modifier::ITALIC),
         )))]
     } else {
         app.kitchen
@@ -677,7 +680,7 @@ fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
     };
 
     let list = List::new(items)
-        .highlight_style(Style::default().add_modifier(Modifier::REVERSED).fg(BONE))
+        .highlight_style(theme::highlight())
         .highlight_symbol("");
     frame.render_stateful_widget(list, body[0], &mut app.agent_list);
 
@@ -695,9 +698,9 @@ fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
         Paragraph::new(vec![
             Line::from(Span::styled(
                 "─".repeat(body[stats_idx].width as usize),
-                Style::default().fg(ASH),
+                Style::default().fg(theme::muted()),
             )),
-            Line::from(Span::styled(stats, Style::default().fg(ASH))),
+            Line::from(Span::styled(stats, Style::default().fg(theme::muted()))),
         ]),
         body[stats_idx],
     );
@@ -706,19 +709,19 @@ fn draw_kitchen(frame: &mut Frame, app: &mut App, area: Rect) {
 fn agent_line(a: &cook::kitchen::Agent) -> Line<'static> {
     let hot = a.status == Status::Cooking;
     let status_style = match a.status {
-        Status::Cooking => Style::default().fg(HEAT).add_modifier(if hot {
+        Status::Cooking => Style::default().fg(theme::heat()).add_modifier(if hot {
             Modifier::BOLD
         } else {
             Modifier::empty()
         }),
-        Status::Cooked => Style::default().fg(SAGE),
-        Status::Burnt => Style::default().fg(CHAR),
-        Status::Raw => Style::default().fg(ASH),
+        Status::Cooked => Style::default().fg(theme::sage()),
+        Status::Burnt => Style::default().fg(theme::charred()),
+        Status::Raw => Style::default().fg(theme::muted()),
     };
     let name_style = if hot {
-        Style::default().fg(BONE).add_modifier(Modifier::BOLD)
+        theme::ink_bold()
     } else {
-        Style::default().fg(BONE)
+        theme::ink()
     };
     let task = a.task.as_deref().unwrap_or("Idle").to_string();
     let label = format!("{:<14}", a.status.label(a.autonomous));
@@ -729,7 +732,14 @@ fn agent_line(a: &cook::kitchen::Agent) -> Line<'static> {
             format!("{} {}  ", a.status.glyph(a.autonomous), label),
             status_style,
         ),
-        Span::styled(task, Style::default().fg(if hot { BONE } else { ASH })),
+        Span::styled(
+            task,
+            if hot {
+                theme::ink()
+            } else {
+                Style::default().fg(theme::muted())
+            },
+        ),
     ])
 }
 
@@ -749,26 +759,34 @@ fn draw_inspect(frame: &mut Frame, app: &App, area: Rect) {
         Line::from(vec![
             Span::styled(
                 "🍳 LET HIM COOK",
-                Style::default().fg(HEAT).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme::heat())
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::raw(" — hands off    "),
-            Span::styled("[m] take back", Style::default().fg(ASH)),
+            Span::styled("[m] take back", Style::default().fg(theme::muted())),
             Span::raw("    "),
             Span::styled(
                 "[c] plate",
-                Style::default().fg(SAGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme::sage())
+                    .add_modifier(Modifier::BOLD),
             ),
         ])
     } else {
         Line::from(vec![
             Span::styled(
                 "[m] LET HIM COOK",
-                Style::default().fg(HEAT).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme::heat())
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::raw("    "),
             Span::styled(
                 "[c] plate",
-                Style::default().fg(SAGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme::sage())
+                    .add_modifier(Modifier::BOLD),
             ),
         ])
     };
@@ -786,10 +804,7 @@ fn draw_inspect(frame: &mut Frame, app: &App, area: Rect) {
     };
     let task = a.task.as_deref().unwrap_or("Idle");
     let meta = vec![
-        Line::from(Span::styled(
-            a.name.clone(),
-            Style::default().fg(BONE).add_modifier(Modifier::BOLD),
-        )),
+        Line::from(Span::styled(a.name.clone(), theme::ink_bold())),
         Line::from(""),
         action,
         Line::from(""),
@@ -801,14 +816,14 @@ fn draw_inspect(frame: &mut Frame, app: &App, area: Rect) {
         Line::from(""),
         Line::from(Span::styled(
             "status is local until a runtime is wired",
-            Style::default().fg(ASH).add_modifier(Modifier::ITALIC),
+            Style::default().fg(theme::muted()).add_modifier(Modifier::ITALIC),
         )),
     ];
     frame.render_widget(
         Paragraph::new(meta).wrap(Wrap { trim: true }).block(
             Block::bordered()
                 .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(ASH))
+                .border_style(Style::default().fg(theme::muted()))
                 .title(" STATION "),
         ),
         cols[0],
@@ -823,11 +838,11 @@ fn draw_inspect(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(
         Paragraph::new(log)
             .wrap(Wrap { trim: false })
-            .style(Style::default().fg(BONE))
+            .style(theme::ink())
             .block(
                 Block::bordered()
                     .border_type(BorderType::Rounded)
-                    .border_style(Style::default().fg(ASH))
+                    .border_style(Style::default().fg(theme::muted()))
                     .title(" TICKETS / LOG "),
             ),
         cols[1],
@@ -836,8 +851,8 @@ fn draw_inspect(frame: &mut Frame, app: &App, area: Rect) {
 
 fn kv<'a>(k: &'a str, v: &'a str) -> Line<'a> {
     Line::from(vec![
-        Span::styled(format!("{k:<14}"), Style::default().fg(ASH)),
-        Span::styled(v.to_string(), Style::default().fg(BONE)),
+        Span::styled(format!("{k:<14}"), Style::default().fg(theme::muted())),
+        Span::styled(v.to_string(), theme::ink()),
     ])
 }
 
@@ -850,7 +865,7 @@ fn draw_recipes(frame: &mut Frame, app: &mut App, area: Rect) {
     let items: Vec<ListItem> = if app.kitchen.recipes.is_empty() {
         vec![ListItem::new(Span::styled(
             "no recipes. [n] file one.",
-            Style::default().fg(ASH).add_modifier(Modifier::ITALIC),
+            Style::default().fg(theme::muted()).add_modifier(Modifier::ITALIC),
         ))]
     } else {
         app.kitchen
@@ -870,10 +885,10 @@ fn draw_recipes(frame: &mut Frame, app: &mut App, area: Rect) {
         .block(
             Block::bordered()
                 .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(ASH))
+                .border_style(Style::default().fg(theme::muted()))
                 .title(" RECIPES "),
         )
-        .highlight_style(Style::default().add_modifier(Modifier::REVERSED).fg(BONE));
+        .highlight_style(theme::highlight());
     frame.render_stateful_widget(list, cols[0], &mut app.recipe_list);
 
     let detail = if let Some(r) = app.recipe_idx().and_then(|i| app.kitchen.recipes.get(i)) {
@@ -888,28 +903,25 @@ fn draw_recipes(frame: &mut Frame, app: &mut App, area: Rect) {
             r.rules.join("\n")
         };
         vec![
-            Line::from(Span::styled(
-                r.name.clone(),
-                Style::default().fg(BONE).add_modifier(Modifier::BOLD),
-            )),
+            Line::from(Span::styled(r.name.clone(), theme::ink_bold())),
             Line::from(""),
-            Line::from(Span::styled("skills", Style::default().fg(ASH))),
-            Line::from(Span::styled(skills, Style::default().fg(BONE))),
+            Line::from(Span::styled("skills", Style::default().fg(theme::muted()))),
+            Line::from(Span::styled(skills, theme::ink())),
             Line::from(""),
-            Line::from(Span::styled("rules", Style::default().fg(ASH))),
-            Line::from(Span::styled(rules, Style::default().fg(BONE))),
+            Line::from(Span::styled("rules", Style::default().fg(theme::muted()))),
+            Line::from(Span::styled(rules, theme::ink())),
         ]
     } else {
         vec![Line::from(Span::styled(
             "a recipe is a reusable skill + rule plate.",
-            Style::default().fg(ASH),
+            Style::default().fg(theme::muted()),
         ))]
     };
     frame.render_widget(
         Paragraph::new(detail).wrap(Wrap { trim: true }).block(
             Block::bordered()
                 .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(ASH))
+                .border_style(Style::default().fg(theme::muted()))
                 .title(" PLATE "),
         ),
         cols[1],
@@ -925,7 +937,7 @@ fn draw_pantry(frame: &mut Frame, app: &mut App, area: Rect) {
     let skill_items: Vec<ListItem> = if app.skills.is_empty() {
         vec![ListItem::new(Span::styled(
             "no skills in skills/",
-            Style::default().fg(ASH).add_modifier(Modifier::ITALIC),
+            Style::default().fg(theme::muted()).add_modifier(Modifier::ITALIC),
         ))]
     } else {
         app.skills
@@ -936,21 +948,21 @@ fn draw_pantry(frame: &mut Frame, app: &mut App, area: Rect) {
     let rule_items: Vec<ListItem> = if app.rules.is_empty() {
         vec![ListItem::new(Span::styled(
             "no rules in rules/",
-            Style::default().fg(ASH).add_modifier(Modifier::ITALIC),
+            Style::default().fg(theme::muted()).add_modifier(Modifier::ITALIC),
         ))]
     } else {
         app.rules.iter().map(|s| ListItem::new(s.clone())).collect()
     };
 
     let skill_border = if matches!(app.pantry_col, PantryCol::Skills) {
-        HEAT
+        theme::heat()
     } else {
-        ASH
+        theme::muted()
     };
     let rule_border = if matches!(app.pantry_col, PantryCol::Rules) {
-        HEAT
+        theme::heat()
     } else {
-        ASH
+        theme::muted()
     };
 
     let skills = List::new(skill_items)
@@ -960,7 +972,7 @@ fn draw_pantry(frame: &mut Frame, app: &mut App, area: Rect) {
                 .border_style(Style::default().fg(skill_border))
                 .title(" SKILLS "),
         )
-        .highlight_style(Style::default().add_modifier(Modifier::REVERSED).fg(BONE));
+        .highlight_style(theme::highlight());
     let rules = List::new(rule_items)
         .block(
             Block::bordered()
@@ -968,7 +980,7 @@ fn draw_pantry(frame: &mut Frame, app: &mut App, area: Rect) {
                 .border_style(Style::default().fg(rule_border))
                 .title(" RULES "),
         )
-        .highlight_style(Style::default().add_modifier(Modifier::REVERSED).fg(BONE));
+        .highlight_style(theme::highlight());
 
     frame.render_stateful_widget(skills, cols[0], &mut app.skill_list);
     frame.render_stateful_widget(rules, cols[1], &mut app.rule_list);

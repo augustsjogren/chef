@@ -2,7 +2,7 @@
 name = "cook"
 version = "0.1.0"
 edition = "2021"
-description = "TUI for managing AI agents. They cook."
+description = "Kitchen — TUI for agent skills, rules, and the line."
 
 [[bin]]
 name = "kitchen"

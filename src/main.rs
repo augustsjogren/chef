@@ -1,3 +1,4 @@
+mod theme;
 mod tty;
 mod tui;
 mod ui;
@@ -16,7 +17,7 @@ use cook::ops::{link_item, unlink_item};
 #[derive(Parser)]
 #[command(
     name = "kitchen",
-    about = "One CLI for the line: pantry, recipes, agents.",
+    about = "Kitchen CLI — pantry, recipes, and the line.",
     after_help = "Examples:\n  kitchen cook\n  kitchen cook frontend Fix accessibility\n  kitchen prep\n  kitchen serve"
 )]
 struct Cli {

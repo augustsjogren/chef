@@ -1,10 +1,10 @@
 ---
-name: agents-repo
-description: Work in the agents monorepo — skills, rules, extensions, harnesses, and Kitchen CLI. Use when adding or editing agent definitions, running kitchen serve, or scaffolding skills and rules in this repository.
+name: kitchen-repo
+description: Work in the kitchen repo — skills, rules, extensions, harnesses, and Kitchen CLI. Use when adding or editing agent definitions, running kitchen serve, or scaffolding skills and rules in this repository.
 disable-model-invocation: true
 ---
 
-# Agents repo workflow
+# Kitchen repo workflow
 
 ## Layout
 
@@ -35,6 +35,7 @@ Put `*.ts` in `extensions/`, then `kitchen serve` → **Pi** harness → link.
 ```bash
 kitchen cook                    # TUI
 kitchen cook <agent> <task>     # assign work (local state until runtime wired)
+kitchen dismiss <agent>         # remove from roster
 kitchen serve                   # symlink pantry
 kitchen prep                    # rebuild after pulling
 ```

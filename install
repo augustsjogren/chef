@@ -52,7 +52,7 @@ ensure_path_hook() {
   fi
   {
     echo ""
-    echo "# rust / cargo (added by agents install)"
+    echo "# rust / cargo (added by kitchen install)"
     echo "$cargo_env"
   } >>"$profile"
   say "install: added cargo env to $profile"

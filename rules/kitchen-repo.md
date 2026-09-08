@@ -1,10 +1,10 @@
 ---
-description: Conventions for the agents repo — canonical skills/rules/extensions, harness adapters, and Kitchen CLI. Use when editing this repository or adding agent definitions.
+description: Conventions for the kitchen repo — canonical skills/rules/extensions, harness adapters, and Kitchen CLI. Use when editing this repository or adding agent definitions.
 alwaysApply: true
 globs: ""
 ---
 
-# Agents repo
+# Kitchen repo
 
 Canonical definitions live by **kind**. Harness wiring is adapters only.
 
