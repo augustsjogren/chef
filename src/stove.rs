@@ -118,7 +118,7 @@ pub fn status_all() -> Result<Vec<BurnerStatus>> {
 
 pub fn status_one(burner: Burner) -> Result<BurnerStatus> {
     let port = port_for(burner);
-    let listening = port_listening(port);
+    let listening = server_listening(burner, port);
     let state = load_state();
     let record = state.burners.get(burner.id());
 
@@ -254,17 +254,62 @@ fn port_for(burner: Burner) -> u16 {
         .unwrap_or_else(|| burner.default_port())
 }
 
+fn server_listening(burner: Burner, port: u16) -> bool {
+    if http_ready(burner, port) {
+        return true;
+    }
+    if find_pid_on_port(port).is_some() {
+        return true;
+    }
+    tcp_open(port)
+}
+
+fn http_ready(burner: Burner, port: u16) -> bool {
+    use std::io::{Read, Write};
+
+    let path = match burner {
+        Burner::Mlx => "/v1/models",
+        Burner::Ollama => "/",
+    };
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let mut stream = match TcpStream::connect_timeout(&addr, Duration::from_millis(300)) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+    let req = format!(
+        "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
+    );
+    if stream.write_all(req.as_bytes()).is_err() {
+        return false;
+    }
+    let mut buf = [0u8; 12];
+    let n = stream.read(&mut buf).unwrap_or(0);
+    http_status_ok(&buf[..n])
+}
+
+fn http_status_ok(buf: &[u8]) -> bool {
+    buf.len() >= 12 && buf[9].is_ascii_digit()
+}
+
+fn tcp_open(port: u16) -> bool {
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
+}
+
 fn port_listening(port: u16) -> bool {
     if find_pid_on_port(port).is_some() {
         return true;
     }
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    TcpStream::connect_timeout(&addr, Duration::from_secs(1)).is_ok()
+    tcp_open(port)
 }
 
 fn process_alive(pid: u32) -> bool {
     Command::new("kill")
         .args(["-0", &pid.to_string()])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
@@ -273,6 +318,9 @@ fn process_alive(pid: u32) -> bool {
 fn find_pid_on_port(port: u16) -> Option<u32> {
     let out = Command::new("lsof")
         .args(["-i", &format!(":{port}"), "-sTCP:LISTEN", "-t"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
         .output()
         .ok()?;
     if !out.status.success() {
@@ -285,14 +333,21 @@ fn find_pid_on_port(port: u16) -> Option<u32> {
 }
 
 fn stop_pid(pid: u32) -> Result<()> {
-    let status = Command::new("kill")
+    let out = Command::new("kill")
         .args(["-TERM", &pid.to_string()])
-        .status()
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()
         .context("kill")?;
-    if !status.success() {
-        bail!("kill -TERM {pid} failed");
+    if out.status.success() {
+        return Ok(());
     }
-    Ok(())
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    if stderr.contains("No such process") {
+        return Ok(());
+    }
+    bail!("kill -TERM {pid} failed: {}", stderr.trim());
 }
 
 fn start_mlx(port: u16) -> Result<u32> {
@@ -511,5 +566,13 @@ mod tests {
             managed: true,
         };
         assert_eq!(simmering.heat(), Heat::Simmering);
+    }
+
+    #[test]
+    fn http_status_line_ok() {
+        assert!(http_status_ok(b"HTTP/1.1 200"));
+        assert!(http_status_ok(b"HTTP/1.1 404"));
+        assert!(!http_status_ok(b"HTTP/1.1 "));
+        assert!(!http_status_ok(b"garbage"));
     }
 }

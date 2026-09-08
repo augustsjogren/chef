@@ -217,6 +217,24 @@ impl App {
         Ok(())
     }
 
+    fn refresh_stove_quiet(&mut self) {
+        match self.refresh_stove() {
+            Ok(()) => self.sync_stove_flash(),
+            Err(e) => self.flash = e.to_string(),
+        }
+    }
+
+    /// Drop stale "warming …" flash once burners have caught up.
+    fn sync_stove_flash(&mut self) {
+        if self.prompt.is_some() {
+            return;
+        }
+        let any_warming = self.stove.iter().any(|s| s.heat() == Heat::Warming);
+        if self.flash.starts_with("warming ") && !any_warming {
+            self.flash.clear();
+        }
+    }
+
     fn handle(&mut self, key: KeyEvent) -> Result<bool> {
         if key.kind != KeyEventKind::Press {
             return Ok(false);
@@ -224,7 +242,6 @@ impl App {
         if self.prompt.is_some() {
             return self.handle_prompt(key);
         }
-        self.flash.clear();
         match self.screen {
             Screen::Kitchen => self.handle_kitchen(key),
             Screen::Inspect => self.handle_inspect(key),
@@ -493,21 +510,20 @@ impl App {
         Ok(false)
     }
 
-    fn stove_simmer(&mut self) -> Result<()> {
+    fn stove_simmer(&mut self) {
         match self.selected_burner() {
             Some(b) => match stove::simmer(b) {
                 Ok(msg) => {
-                    self.refresh_stove()?;
+                    self.refresh_stove_quiet();
                     self.flash = msg;
                 }
                 Err(e) => {
-                    self.refresh_stove()?;
+                    self.refresh_stove_quiet();
                     self.flash = e.to_string();
                 }
             },
             None => self.flash = "pick a burner".into(),
         }
-        Ok(())
     }
 
     fn handle_stove(&mut self, key: KeyEvent) -> Result<bool> {
@@ -522,22 +538,22 @@ impl App {
                 let i = self.burner_idx().unwrap_or(0).saturating_add(1);
                 self.select_burner(i);
             }
-            KeyCode::Enter | KeyCode::Char('s') => self.stove_simmer()?,
+            KeyCode::Enter | KeyCode::Char('s') => self.stove_simmer(),
             KeyCode::Char('c') => match self.selected_burner() {
                 Some(b) => match stove::cool(b) {
                     Ok(msg) => {
-                        self.refresh_stove()?;
+                        self.refresh_stove_quiet();
                         self.flash = msg;
                     }
                     Err(e) => {
-                        self.refresh_stove()?;
+                        self.refresh_stove_quiet();
                         self.flash = e.to_string();
                     }
                 },
                 None => self.flash = "pick a burner".into(),
             },
             KeyCode::Char('r') => {
-                self.refresh_stove()?;
+                self.refresh_stove_quiet();
                 self.flash = "stove checked".into();
             }
             _ => {}
@@ -644,16 +660,11 @@ pub fn run() -> Result<()> {
 fn run_app(terminal: &mut DefaultTerminal) -> Result<()> {
     let mut app = App::new()?;
     loop {
-        if app.screen == Screen::Stove {
-            app.refresh_stove()?;
+        if stove_poll_needed(&app) {
+            app.refresh_stove_quiet();
         }
         terminal.draw(|frame| draw(frame, &mut app))?;
-        let tick = if app.screen == Screen::Stove {
-            Duration::from_millis(500)
-        } else {
-            Duration::from_secs(60 * 60)
-        };
-        if !event::poll(tick)? {
+        if !event::poll(poll_interval(&app))? {
             continue;
         }
         if let Event::Key(key) = event::read()? {
@@ -665,55 +676,137 @@ fn run_app(terminal: &mut DefaultTerminal) -> Result<()> {
     Ok(())
 }
 
+fn stove_poll_needed(app: &App) -> bool {
+    app.screen == Screen::Stove
+        || app.stove.iter().any(|s| s.heat() == Heat::Warming)
+        || app.flash.starts_with("warming ")
+}
+
+fn poll_interval(app: &App) -> Duration {
+    if app.stove.iter().any(|s| s.heat() == Heat::Warming)
+        || app.flash.starts_with("warming ")
+    {
+        Duration::from_millis(250)
+    } else if app.screen == Screen::Stove {
+        Duration::from_millis(750)
+    } else {
+        Duration::from_secs(60 * 60)
+    }
+}
+
 fn draw(frame: &mut Frame, app: &mut App) {
     let inner = Layout::vertical([Constraint::Percentage(100)])
         .margin(2)
         .split(frame.area())[0];
 
-    let main_h = match app.screen {
-        Screen::Kitchen => kitchen_panel_height(app),
-        _ => inner.height.saturating_sub(3).min(inner.height * 2 / 3),
-    };
-
+    let status_h = 3;
     let chunks = Layout::vertical([
-        Constraint::Length(main_h),
         Constraint::Min(0),
-        Constraint::Length(1),
+        Constraint::Length(status_h),
         Constraint::Length(1),
     ])
     .split(inner);
 
+    let footer_h = status_h + 1;
+    let main_area = chunks[0];
+    let main_h = match app.screen {
+        Screen::Kitchen => kitchen_panel_height(app).min(main_area.height),
+        _ => main_area
+            .height
+            .saturating_sub(footer_h)
+            .min(main_area.height * 2 / 3),
+    };
+    let panel = Rect {
+        x: main_area.x,
+        y: main_area.y,
+        width: main_area.width,
+        height: main_h,
+    };
+
     match app.screen {
-        Screen::Kitchen => draw_kitchen(frame, app, chunks[0]),
-        Screen::Inspect => draw_inspect(frame, app, chunks[0]),
-        Screen::Recipes => draw_recipes(frame, app, chunks[0]),
-        Screen::Pantry => draw_pantry(frame, app, chunks[0]),
-        Screen::Stove => draw_stove(frame, app, chunks[0]),
+        Screen::Kitchen => draw_kitchen(frame, app, panel),
+        Screen::Inspect => draw_inspect(frame, app, panel),
+        Screen::Recipes => draw_recipes(frame, app, panel),
+        Screen::Pantry => draw_pantry(frame, app, panel),
+        Screen::Stove => draw_stove(frame, app, panel),
     }
 
-    if let Some(prompt) = &app.prompt {
-        let title = match prompt {
-            Prompt::SpawnName => "name",
-            Prompt::SpawnTask { .. } => "ticket (empty = idle)",
-            Prompt::AssignTask => "ticket",
-            Prompt::RecipeName => "recipe name (copies selected agent pantry)",
-        };
-        frame.render_widget(
-            Paragraph::new(format!("{title}: {}", app.input))
-                .style(Style::default().fg(theme::heat())),
-            chunks[2],
-        );
-    } else if !app.flash.is_empty() {
-        frame.render_widget(
-            Paragraph::new(truncate(&app.flash, 120)).style(Style::default().fg(theme::muted())),
-            chunks[2],
-        );
-    }
-
+    draw_status_bar(frame, app, chunks[1]);
     frame.render_widget(
         help_line(app).style(Style::default().fg(theme::muted())),
-        chunks[3],
+        chunks[2],
     );
+}
+
+fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect) {
+    let block = Block::bordered()
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(theme::muted()))
+        .title(status_bar_title(app))
+        .title_style(theme::ink_bold());
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let style = if app.prompt.is_some() {
+        theme::ink()
+    } else if !app.flash.is_empty() {
+        Style::default().fg(theme::heat())
+    } else {
+        theme::ink()
+    };
+    frame.render_widget(Paragraph::new(status_message(app)).style(style), inner);
+}
+
+fn status_bar_title(app: &App) -> &'static str {
+    if let Some(prompt) = &app.prompt {
+        match prompt {
+            Prompt::SpawnName => "Name",
+            Prompt::SpawnTask { .. } => "Ticket",
+            Prompt::AssignTask => "Ticket",
+            Prompt::RecipeName => "Recipe",
+        }
+    } else {
+        "Status"
+    }
+}
+
+fn status_message(app: &App) -> Line<'static> {
+    if app.prompt.is_some() {
+        return Line::from(app.input.clone());
+    }
+    if !app.flash.is_empty() {
+        return Line::from(truncate(&app.flash, 120).to_string());
+    }
+    idle_status(app)
+}
+
+fn idle_status(app: &App) -> Line<'static> {
+    match app.screen {
+        Screen::Kitchen => Line::from(app.kitchen.line_summary()),
+        Screen::Inspect => {
+            if let Some(i) = app.agent_idx() {
+                if let Some(a) = app.kitchen.agents.get(i) {
+                    let task = a.task.as_deref().unwrap_or("Idle");
+                    return Line::from(format!("{} — {}", a.name, task));
+                }
+            }
+            Line::from("inspect")
+        }
+        Screen::Recipes => Line::from(format!("{} recipes", app.kitchen.recipes.len())),
+        Screen::Pantry => Line::from(format!(
+            "{} skills · {} rules",
+            app.skills.len(),
+            app.rules.len()
+        )),
+        Screen::Stove => {
+            let hot = app
+                .stove
+                .iter()
+                .filter(|s| s.heat() != Heat::Cold)
+                .count();
+            Line::from(format!("{}/{} burners hot", hot, app.stove.len()))
+        }
+    }
 }
 
 /// Kitchen panel height from roster size — avoids a full-terminal empty box.
@@ -734,32 +827,32 @@ fn empty_kitchen_msg() -> &'static str {
     EMPTY_KITCHEN[tick % EMPTY_KITCHEN.len()]
 }
 
-fn help_line(app: &App) -> Paragraph<'static> {
+fn help_line(app: &App) -> Line<'static> {
     if app.prompt.is_some() {
-        return Paragraph::new("enter confirm   esc cancel");
+        return Line::from("[ENTER]:Confirm  [ESC]:Cancel");
     }
     match app.screen {
         Screen::Kitchen => kitchen_help(app),
-        Screen::Inspect => Paragraph::new(
-            "[esc] kitchen  [m] let him cook  [c] plate  [d] stop  [D] dismiss  [t] ticket  [q] quit",
+        Screen::Inspect => Line::from(
+            "[ESC]:Kitchen  [M]:Autonomous  [C]:Plate  [D]:Stop  [DEL]:Dismiss  [T]:Ticket  [Q]:Quit",
         ),
-        Screen::Recipes => {
-            Paragraph::new("[esc] kitchen  [n] new  [a] apply  [D] delete  [q] quit")
+        Screen::Recipes => Line::from("[ESC]:Kitchen  [N]:New  [A]:Apply  [DEL]:Delete  [Q]:Quit"),
+        Screen::Pantry => {
+            Line::from("[ESC]:Kitchen  [TAB]:Column  [A]:Attach  [-]:Detach  [Q]:Quit")
         }
-        Screen::Pantry => Paragraph::new("[esc] kitchen  tab column  [a] attach  [-] detach  [q] quit"),
         Screen::Stove => {
-            Paragraph::new("[esc] kitchen  [enter]/[s] simmer  [c] cool  [r] refresh  [q] quit")
+            Line::from("[ESC]:Kitchen  [ENTER]:Simmer  [C]:Cool  [R]:Refresh  [Q]:Quit")
         }
     }
 }
 
-fn kitchen_help(app: &App) -> Paragraph<'static> {
+fn kitchen_help(app: &App) -> Line<'static> {
     if app.agent_idx().is_some() {
-        Paragraph::new(Line::from(vec![Span::raw(
-            "j/k  [enter] inspect  [t] ticket  [p] pantry  [o] stove  [d] stop  [D] dismiss  [x] burnt  [r] recipes  [q] quit",
-        )]))
+        Line::from(
+            "[J/K]:Move  [ENTER]:Inspect  [T]:Ticket  [P]:Pantry  [O]:Stove  [D]:Stop  [DEL]:Dismiss  [X]:Burnt  [R]:Recipes  [Q]:Quit",
+        )
     } else {
-        Paragraph::new("[s] spawn  [r] recipes  [p] pantry  [o] stove  [q] quit")
+        Line::from("[S]:Spawn  [R]:Recipes  [P]:Pantry  [O]:Stove  [Q]:Quit")
     }
 }
 
