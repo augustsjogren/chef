@@ -5,9 +5,29 @@ Pi loads **packages** (`settings.json` `packages`) and **extensions** (`~/.pi/ag
 | Kind | This repo | Pi load path |
 |------|-----------|--------------|
 | Extension | `extensions/` | `~/.pi/agent/extensions/` |
-| Skill | `skills/` | Only if you add a package or prompt that points at them |
-| Rule | `rules/` | Project `AGENTS.md` or a Pi package |
+| Skill | `skills/` | Via package or prompt — see `local-pi-qwen` |
+| Rule | `rules/` | Project `AGENTS.md` or Pi package |
 
-Live local stack (Qwen MLX on `:8080`, compaction, `cap-tool-output`): [qwen-local.md](qwen-local.md).
+## Wire extensions
 
-When adding a rule for the 9B local model, prefer “use `edit`, avoid full-file `write`” — long writes dominate decode time.
+```bash
+kitchen serve
+```
+
+Pick **Pi** in the TUI, select `cap-tool-output.ts`, press `l` to link.
+
+Or CLI:
+
+```bash
+kitchen serve link pi
+```
+
+Symlink: `extensions/cap-tool-output.ts` → `~/.pi/agent/extensions/cap-tool-output.ts`. Run `/reload` in Pi after changes.
+
+## Local Qwen stack
+
+MLX server on `:8080`, compaction, tool caps: [qwen-local.md](qwen-local.md).
+
+**Recipe:** In Kitchen TUI (`kitchen cook`), open **Recipes** → **Local Qwen 9B** → attach to an agent. Bundles skill `local-pi-qwen` + rule `prefer-edit-over-write`.
+
+For Pi sessions in other repos, copy `rules/prefer-edit-over-write.md` into that project's `AGENTS.md` or install via a Pi package.

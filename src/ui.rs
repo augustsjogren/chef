@@ -1,6 +1,6 @@
 //! Cook kitchen TUI. Cooking words are labels; navigation stays boring and fast.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -129,6 +129,42 @@ impl App {
         Ok(())
     }
 
+    fn remove_agent(&mut self, idx: usize) -> Result<()> {
+        let name = self.kitchen.remove_agent(idx)?;
+        if self.kitchen.agents.is_empty() {
+            self.agent_list.select(None);
+        } else {
+            self.select_agent(idx.min(self.kitchen.agents.len() - 1));
+        }
+        if self.screen == Screen::Inspect {
+            self.screen = Screen::Kitchen;
+        }
+        self.flash = format!("{name} dismissed");
+        Ok(())
+    }
+
+    fn stop_agent(&mut self, idx: usize) {
+        match self.kitchen.kill(idx) {
+            Ok("stopped") => self.flash = "off the heat".into(),
+            Ok(other) => self.flash = other.into(),
+            Err(e) => self.flash = e.to_string(),
+        }
+    }
+
+    fn toggle_autonomous(&mut self, idx: usize) {
+        match self.kitchen.toggle_autonomous(idx) {
+            Ok(()) => {
+                let a = &self.kitchen.agents[idx];
+                self.flash = if a.autonomous {
+                    "let him cook".into()
+                } else {
+                    "hands back on".into()
+                };
+            }
+            Err(e) => self.flash = e.to_string(),
+        }
+    }
+
     fn do_spawn(&mut self, name: String, task: Option<String>) -> Result<()> {
         self.kitchen.spawn(&name, task)?;
         self.select_agent(self.kitchen.agents.len() - 1);
@@ -178,11 +214,15 @@ impl App {
                         self.do_spawn(name, task)?;
                     }
                     Some(Prompt::AssignTask) => {
-                        if let Some(i) = self.agent_idx() {
+                        if typed.is_empty() {
+                            self.flash = "need a ticket".into();
+                        } else if let Some(i) = self.agent_idx() {
                             match self.kitchen.assign_task(i, &typed) {
                                 Ok(()) => self.flash = "ticket in".into(),
                                 Err(e) => self.flash = e.to_string(),
                             }
+                        } else {
+                            self.flash = "select an agent first".into();
                         }
                     }
                     Some(Prompt::RecipeName) => {
@@ -229,6 +269,8 @@ impl App {
                 if self.agent_idx().is_some() {
                     self.input.clear();
                     self.prompt = Some(Prompt::AssignTask);
+                } else {
+                    self.flash = "select an agent first".into();
                 }
             }
             KeyCode::Char('r') => self.screen = Screen::Recipes,
@@ -238,38 +280,47 @@ impl App {
             }
             KeyCode::Char('m') => {
                 if let Some(i) = self.agent_idx() {
-                    match self.kitchen.toggle_autonomous(i) {
-                        Ok(()) => {
-                            let a = &self.kitchen.agents[i];
-                            self.flash = if a.autonomous {
-                                "let him cook".into()
-                            } else {
-                                "hands back on".into()
-                            };
-                        }
-                        Err(e) => self.flash = e.to_string(),
-                    }
+                    self.toggle_autonomous(i);
+                } else {
+                    self.flash = "select an agent first".into();
                 }
             }
             KeyCode::Char('c') => {
                 if let Some(i) = self.agent_idx() {
-                    self.kitchen.plate(i)?;
-                    self.flash = "plated".into();
+                    if let Err(e) = self.kitchen.plate(i) {
+                        self.flash = e.to_string();
+                    } else {
+                        self.flash = "plated".into();
+                    }
+                } else {
+                    self.flash = "select an agent first".into();
                 }
             }
             KeyCode::Char('x') => {
                 if let Some(i) = self.agent_idx() {
-                    self.kitchen.burn(i)?;
-                    self.flash = "burnt".into();
+                    if let Err(e) = self.kitchen.burn(i) {
+                        self.flash = e.to_string();
+                    } else {
+                        self.flash = "burnt".into();
+                    }
+                } else {
+                    self.flash = "select an agent first".into();
                 }
             }
-            KeyCode::Char('d') | KeyCode::Delete => {
+            KeyCode::Char('d') => {
                 if let Some(i) = self.agent_idx() {
-                    match self.kitchen.kill(i) {
-                        Ok("stopped") => self.flash = "off the heat".into(),
-                        Ok(other) => self.flash = other.into(),
-                        Err(e) => self.flash = e.to_string(),
+                    self.stop_agent(i);
+                } else {
+                    self.flash = "select an agent first".into();
+                }
+            }
+            KeyCode::Delete | KeyCode::Char('D') => {
+                if let Some(i) = self.agent_idx() {
+                    if let Err(e) = self.remove_agent(i) {
+                        self.flash = e.to_string();
                     }
+                } else {
+                    self.flash = "select an agent first".into();
                 }
             }
             _ => {}
@@ -287,9 +338,7 @@ impl App {
             }
             KeyCode::Char('m') => {
                 if let Some(i) = self.agent_idx() {
-                    if let Err(e) = self.kitchen.toggle_autonomous(i) {
-                        self.flash = e.to_string();
-                    }
+                    self.toggle_autonomous(i);
                 }
             }
             KeyCode::Char('r') => self.screen = Screen::Recipes,
@@ -299,17 +348,32 @@ impl App {
             }
             KeyCode::Char('c') => {
                 if let Some(i) = self.agent_idx() {
-                    self.kitchen.plate(i)?;
+                    if let Err(e) = self.kitchen.plate(i) {
+                        self.flash = e.to_string();
+                    } else {
+                        self.flash = "plated".into();
+                    }
                 }
             }
             KeyCode::Char('x') => {
                 if let Some(i) = self.agent_idx() {
-                    self.kitchen.burn(i)?;
+                    if let Err(e) = self.kitchen.burn(i) {
+                        self.flash = e.to_string();
+                    } else {
+                        self.flash = "burnt".into();
+                    }
                 }
             }
             KeyCode::Char('d') => {
                 if let Some(i) = self.agent_idx() {
-                    let _ = self.kitchen.kill(i)?;
+                    self.stop_agent(i);
+                }
+            }
+            KeyCode::Delete | KeyCode::Char('D') => {
+                if let Some(i) = self.agent_idx() {
+                    if let Err(e) = self.remove_agent(i) {
+                        self.flash = e.to_string();
+                    }
                 }
             }
             _ => {}
@@ -343,12 +407,12 @@ impl App {
             KeyCode::Char('D') => {
                 if let Some(i) = self.recipe_idx() {
                     self.kitchen.delete_recipe(i)?;
-                    self.select_recipe(i.saturating_sub(0));
                     if self.kitchen.recipes.is_empty() {
                         self.recipe_list.select(None);
                     } else {
                         self.select_recipe(i.min(self.kitchen.recipes.len() - 1));
                     }
+                    self.flash = "recipe deleted".into();
                 }
             }
             _ => {}
@@ -368,33 +432,86 @@ impl App {
             }
             KeyCode::Up | KeyCode::Char('k') => self.move_pantry(-1),
             KeyCode::Down | KeyCode::Char('j') => self.move_pantry(1),
-            KeyCode::Char('a') | KeyCode::Enter => {
-                let Some(ai) = self.agent_idx() else {
-                    self.flash = "spawn or select an agent in the kitchen first".into();
-                    return Ok(false);
-                };
-                match self.pantry_col {
-                    PantryCol::Skills => {
-                        if let Some(i) = self.skill_list.selected() {
-                            if let Some(name) = self.skills.get(i).cloned() {
-                                self.kitchen.add_skill(ai, &name)?;
-                                self.flash = format!("+ skill {name}");
-                            }
-                        }
-                    }
-                    PantryCol::Rules => {
-                        if let Some(i) = self.rule_list.selected() {
-                            if let Some(name) = self.rules.get(i).cloned() {
-                                self.kitchen.add_rule(ai, &name)?;
-                                self.flash = format!("+ rule {name}");
-                            }
-                        }
-                    }
-                }
-            }
+            KeyCode::Char('a') | KeyCode::Enter => self.pantry_attach()?,
+            KeyCode::Char('-') => self.pantry_detach()?,
             _ => {}
         }
         Ok(false)
+    }
+
+    fn pantry_attach(&mut self) -> Result<()> {
+        let Some(ai) = self.agent_idx() else {
+            self.flash = "select an agent in the kitchen first".into();
+            return Ok(());
+        };
+        match self.pantry_col {
+            PantryCol::Skills => {
+                let Some(i) = self.skill_list.selected() else {
+                    self.flash = "pick a skill".into();
+                    return Ok(());
+                };
+                let Some(name) = self.skills.get(i).cloned() else {
+                    self.flash = "no skills in pantry".into();
+                    return Ok(());
+                };
+                self.kitchen.add_skill(ai, &name)?;
+                self.flash = format!("+ skill {name}");
+            }
+            PantryCol::Rules => {
+                let Some(i) = self.rule_list.selected() else {
+                    self.flash = "pick a rule".into();
+                    return Ok(());
+                };
+                let Some(name) = self.rules.get(i).cloned() else {
+                    self.flash = "no rules in pantry".into();
+                    return Ok(());
+                };
+                self.kitchen.add_rule(ai, &name)?;
+                self.flash = format!("+ rule {name}");
+            }
+        }
+        Ok(())
+    }
+
+    fn pantry_detach(&mut self) -> Result<()> {
+        let Some(ai) = self.agent_idx() else {
+            self.flash = "select an agent in the kitchen first".into();
+            return Ok(());
+        };
+        let agent = self.kitchen.agents.get(ai).context("no agent")?;
+        match self.pantry_col {
+            PantryCol::Skills => {
+                let Some(i) = self.skill_list.selected() else {
+                    self.flash = "pick a skill".into();
+                    return Ok(());
+                };
+                let Some(name) = self.skills.get(i).cloned() else {
+                    return Ok(());
+                };
+                if !agent.skills.iter().any(|s| s == &name) {
+                    self.flash = format!("{name} not on agent");
+                    return Ok(());
+                }
+                self.kitchen.remove_skill(ai, &name)?;
+                self.flash = format!("- skill {name}");
+            }
+            PantryCol::Rules => {
+                let Some(i) = self.rule_list.selected() else {
+                    self.flash = "pick a rule".into();
+                    return Ok(());
+                };
+                let Some(name) = self.rules.get(i).cloned() else {
+                    return Ok(());
+                };
+                if !agent.rules.iter().any(|s| s == &name) {
+                    self.flash = format!("{name} not on agent");
+                    return Ok(());
+                };
+                self.kitchen.remove_rule(ai, &name)?;
+                self.flash = format!("- rule {name}");
+            }
+        }
+        Ok(())
     }
 
     fn move_pantry(&mut self, delta: i32) {
@@ -480,19 +597,19 @@ fn help_line(app: &App) -> Paragraph<'static> {
     match app.screen {
         Screen::Kitchen => kitchen_help(app),
         Screen::Inspect => Paragraph::new(
-            "[esc] kitchen  [m] let him cook  [c] plate  [t] ticket  [d] kill  [q] quit",
+            "[esc] kitchen  [m] let him cook  [c] plate  [d] stop  [D] dismiss  [t] ticket  [q] quit",
         ),
         Screen::Recipes => {
             Paragraph::new("[esc] kitchen  [n] new  [a] apply  [D] delete  [q] quit")
         }
-        Screen::Pantry => Paragraph::new("[esc] kitchen  tab column  [a] attach  [q] quit"),
+        Screen::Pantry => Paragraph::new("[esc] kitchen  tab column  [a] attach  [-] detach  [q] quit"),
     }
 }
 
 fn kitchen_help(app: &App) -> Paragraph<'static> {
     if app.agent_idx().is_some() {
         Paragraph::new(Line::from(vec![Span::raw(
-            "j/k  [enter] inspect  [t] ticket  [d] kill  [x] burnt  [r] recipes  [q] quit",
+            "j/k  [enter] inspect  [t] ticket  [p] pantry  [d] stop  [D] dismiss  [x] burnt  [r] recipes  [q] quit",
         )]))
     } else {
         Paragraph::new("[s] spawn  [r] recipes  [p] pantry  [q] quit")

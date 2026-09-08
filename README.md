@@ -38,6 +38,18 @@ After pulling code: `kitchen prep` (rebuild + reinstall). Data lives in `.kitche
 | `COOKED` | finished |
 | `BURNT` | failed |
 
-Keys (kitchen): `[enter]` inspect · `[s]` spawn · `[t]` ticket · `[r]` recipes · `[p]` pantry · `[m]` let him cook · `[d]` kill · `[c]` plate · `[x]` burnt · `[q]` quit. `j`/`k` move. Kill is `d`, not `k` — `k` is up.
+Keys (kitchen): `[enter]` inspect · `[s]` spawn · `[t]` ticket · `[m]` let him cook · `[d]` stop · `[D]` / Delete dismiss · `[c]` plate · `[x]` burnt · `[q]` quit. `j`/`k` move.
+
+## Pantry (included)
+
+| Kind | Name | Purpose |
+|------|------|---------|
+| Skill | `agents-repo` | How to work in this repo |
+| Skill | `local-pi-qwen` | Pi + Qwen MLX on `:8080` |
+| Rule | `prefer-edit-over-write` | Small local models: edit not write |
+| Rule | `agents-repo` | Repo conventions (always-on here) |
+| Extension | `cap-tool-output.ts` | Pi tool output caps — `kitchen serve link pi` |
+
+Recipe **Local Qwen 9B** bundles the Pi skill + edit rule.
 
 Existing local Pi + Qwen notes: [`harnesses/pi/qwen-local.md`](harnesses/pi/qwen-local.md).

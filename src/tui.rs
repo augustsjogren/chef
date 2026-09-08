@@ -281,7 +281,7 @@ fn draw(frame: &mut Frame, app: &mut App) {
     };
     let header = Paragraph::new(vec![
         Line::from(vec![
-            Span::styled("wire", Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled("serve", Style::default().add_modifier(Modifier::BOLD)),
             Span::raw(format!("  {}", repo_root().display())),
         ]),
         Line::from(format!("project: {project}")),

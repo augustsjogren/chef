@@ -41,6 +41,8 @@ enum Cmd {
     },
     /// Print who's on the line
     Status,
+    /// Remove an agent from the roster
+    Dismiss { agent: String },
     /// Symlink skills/rules/extensions into Cursor / Claude / Pi
     Serve {
         #[arg(long)]
@@ -96,6 +98,7 @@ fn main() -> Result<()> {
         },
         Some(Cmd::Prep) => prep(),
         Some(Cmd::Status) => print_kitchen(),
+        Some(Cmd::Dismiss { agent }) => dismiss_agent(&agent),
         Some(Cmd::Serve { project, cmd }) => serve(project, cmd),
     }
 }
@@ -154,6 +157,16 @@ fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>) -> Result<()> {
         Some(ServeCmd::Link { harness }) => apply(&harness, project.as_deref(), true),
         Some(ServeCmd::Unlink { harness }) => apply(&harness, project.as_deref(), false),
     }
+}
+
+fn dismiss_agent(name: &str) -> Result<()> {
+    let mut k = Kitchen::load()?;
+    let idx = k
+        .find_agent(name)
+        .with_context(|| format!("no agent: {name}"))?;
+    let removed = k.remove_agent(idx)?;
+    println!("dismissed {removed}");
+    Ok(())
 }
 
 fn print_kitchen() -> Result<()> {

@@ -234,6 +234,16 @@ impl Kitchen {
         }
     }
 
+    /// Remove agent from the roster. Log file is kept in `.kitchen/logs/`.
+    pub fn remove_agent(&mut self, idx: usize) -> Result<String> {
+        let agent = self.agents.get(idx).context("no agent")?;
+        let name = agent.name.clone();
+        append_log(&agent.id, "dismissed from the line")?;
+        self.agents.remove(idx);
+        self.save()?;
+        Ok(name)
+    }
+
     pub fn plate(&mut self, idx: usize) -> Result<()> {
         let agent = self.agents.get_mut(idx).context("no agent")?;
         agent.status = Status::Cooked;
@@ -254,14 +264,14 @@ impl Kitchen {
 
     pub fn toggle_autonomous(&mut self, idx: usize) -> Result<()> {
         let agent = self.agents.get_mut(idx).context("no agent")?;
-        if agent.status == Status::Raw {
-            if agent.task.is_none() {
-                anyhow::bail!("give them a ticket first");
-            }
-            agent.status = Status::Cooking;
+        if agent.task.is_none() {
+            anyhow::bail!("give them a ticket first");
         }
-        if agent.status != Status::Cooking {
-            anyhow::bail!("only cooks on the heat");
+        match agent.status {
+            Status::Raw | Status::Cooked | Status::Burnt => {
+                agent.status = Status::Cooking;
+            }
+            Status::Cooking => {}
         }
         agent.autonomous = !agent.autonomous;
         let msg = if agent.autonomous {
@@ -300,6 +310,28 @@ impl Kitchen {
         if !agent.rules.iter().any(|s| s == name) {
             agent.rules.push(name.to_string());
             append_log(&agent.id, &format!("rule + {name}"))?;
+            self.save()?;
+        }
+        Ok(())
+    }
+
+    pub fn remove_skill(&mut self, idx: usize, name: &str) -> Result<()> {
+        let agent = self.agents.get_mut(idx).context("no agent")?;
+        let before = agent.skills.len();
+        agent.skills.retain(|s| s != name);
+        if agent.skills.len() < before {
+            append_log(&agent.id, &format!("skill - {name}"))?;
+            self.save()?;
+        }
+        Ok(())
+    }
+
+    pub fn remove_rule(&mut self, idx: usize, name: &str) -> Result<()> {
+        let agent = self.agents.get_mut(idx).context("no agent")?;
+        let before = agent.rules.len();
+        agent.rules.retain(|s| s != name);
+        if agent.rules.len() < before {
+            append_log(&agent.id, &format!("rule - {name}"))?;
             self.save()?;
         }
         Ok(())
@@ -431,6 +463,25 @@ mod tests {
     fn slug_strips_noise() {
         assert_eq!(slug("Front End!!"), "front-end");
         assert_eq!(slug("@@@"), "cook");
+    }
+
+    #[test]
+    fn remove_agent_drops_from_roster() {
+        let mut k = Kitchen {
+            agents: vec![Agent {
+                id: "test".into(),
+                name: "test".into(),
+                status: Status::Raw,
+                task: None,
+                recipe: None,
+                skills: vec![],
+                rules: vec![],
+                autonomous: false,
+            }],
+            recipes: vec![],
+        };
+        k.remove_agent(0).unwrap();
+        assert!(k.agents.is_empty());
     }
 
     #[test]
