@@ -11,8 +11,9 @@ use clap::{Parser, Subcommand};
 
 use kitchen::config::{expand_path, harness_by_id, load_harnesses, repo_root};
 use kitchen::item::{classify, items_for};
-use kitchen::kitchen::Kitchen;
+use kitchen::kitchen::{parse_cook_words, Kitchen};
 use kitchen::ops::{link_item, unlink_item};
+use kitchen::runtime;
 use kitchen::stove::{cool, print_status, simmer, Burner};
 
 #[derive(Parser)]
@@ -100,13 +101,15 @@ fn main() -> Result<()> {
                 task.join(" ")
             ),
             Some(agent) => {
-                let ticket = if task.is_empty() {
-                    None
-                } else {
-                    Some(task.join(" "))
-                };
+                let (ticket, autonomous) = parse_cook_words(task, autonomous);
                 let mut k = Kitchen::load()?;
-                let id = k.cook_order(&agent, ticket.as_deref(), autonomous)?;
+                let (id, dispatch) = k.cook_order(&agent, ticket.as_deref(), autonomous)?;
+                if let Some(ticket) = dispatch {
+                    k.mark_running(&ticket.agent_id, "raw")?;
+                    let result = runtime::dispatch_agent(&ticket.agent_id, &ticket.prompt);
+                    k.clear_run(&ticket.agent_id)?;
+                    result?;
+                }
                 let a = k
                     .agents
                     .iter()

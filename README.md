@@ -27,7 +27,7 @@ Installs rustup if needed, adds `~/.cargo/env` to your shell profile, builds `ki
 ```bash
 kitchen cook                          # TUI
 kitchen cook frontend Fix a11y        # spawn/assign + COOKING
-kitchen cook frontend -a Fix a11y     # LET HIM COOK
+kitchen cook frontend Fix a11y -a     # LET HIM COOK — dispatch to MLX
 kitchen status
 kitchen dismiss frontend            # remove from roster
 kitchen serve                       # symlink pantry into Cursor / Claude / Pi
@@ -45,7 +45,7 @@ Set `KITCHEN_ROOT` to point at this repo if you run `kitchen` from elsewhere.
 |---------|------|
 | `kitchen cook` | Open the TUI |
 | `kitchen cook <agent> <task>` | Spawn or assign a **ticket** and start COOKING |
-| `kitchen cook <agent> -a <task>` | Same, but LET HIM COOK (autonomous) |
+| `kitchen cook <agent> <task> -a` | LET HIM COOK — dispatch ticket to MLX (raw HTTP) |
 | `kitchen status` | Print roster + pantry counts |
 | `kitchen dismiss <agent>` | Remove agent from roster (logs kept) |
 | `kitchen prep` | `cargo build` + `cargo install --path .` |
@@ -67,13 +67,13 @@ A **ticket** is the task string on an agent — free text like `fix login page`.
 |--------|---------|
 | `RAW` | on roster, no work started |
 | `COOKING` | working |
-| `LET HIM COOK` | working, autonomous |
+| `LET HIM COOK` | autonomous — ticket dispatches to MLX |
 | `COOKED` | finished |
 | `BURNT` | failed |
 
-Keys: `[enter]` inspect · `[s]` spawn · `[t]` ticket · `[m]` let him cook · `[d]` stop · `[D]` / Delete dismiss · `[c]` plate · `[x]` burnt · `[r]` recipes · `[p]` pantry · `[o]` stove · `[q]` quit. `j`/`k` move. Pantry: `[a]` attach · `[-]` detach. Stove: `[enter]`/`[s]` simmer · `[c]` cool · `[r]` refresh.
+Keys: `[enter]` inspect · `[s]` spawn · `[t]` ticket · `[m]` let him cook · `[d]` stop (cancels in-flight dispatch) · `[D]` / Delete dismiss · `[c]` plate · `[x]` burnt · `[r]` recipes · `[p]` pantry · `[o]` stove · `[q]` quit. `j`/`k` move. Pantry: `[a]` attach · `[-]` detach. Stove: `[enter]`/`[s]` simmer · `[c]` cool · `[r]` refresh.
 
-Kitchen state is local only — no live Pi/Cursor process yet.
+**Autonomous mode** (`-a` or `[m]`): kitchen warms MLX on the stove if needed, POSTs the ticket to `/v1/chat/completions`, and logs the reply under `.kitchen/logs/<agent-id>.log`. Inspect the agent to read it. Stop with `[d]` while dispatching.
 
 ## Pantry (bundled)
 

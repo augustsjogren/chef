@@ -1,5 +1,6 @@
 //! Kitchen TUI. Cooking words are labels; navigation stays boring and fast.
 
+use std::sync::mpsc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -10,7 +11,8 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
 
-use kitchen::kitchen::{read_log, Kitchen, Status};
+use kitchen::kitchen::{read_log, DispatchTicket, Kitchen, Status};
+use kitchen::runtime;
 use kitchen::stove::{self, Burner, BurnerStatus, Heat};
 
 use crate::theme;
@@ -60,6 +62,8 @@ struct App {
     prompt: Option<Prompt>,
     input: String,
     flash: String,
+    dispatch_rx: Option<mpsc::Receiver<Result<()>>>,
+    dispatch_agent_id: Option<String>,
 }
 
 impl App {
@@ -102,7 +106,46 @@ impl App {
             prompt: None,
             input: String::new(),
             flash: String::new(),
+            dispatch_rx: None,
+            dispatch_agent_id: None,
         })
+    }
+
+    fn start_dispatch(&mut self, ticket: DispatchTicket) {
+        if self.dispatch_rx.is_some() {
+            self.flash = "already dispatching".into();
+            return;
+        }
+        if let Err(e) = self.kitchen.mark_running(&ticket.agent_id, "raw") {
+            self.flash = e.to_string();
+            return;
+        }
+        let (tx, rx) = mpsc::channel();
+        self.dispatch_rx = Some(rx);
+        self.dispatch_agent_id = Some(ticket.agent_id.clone());
+        let id = ticket.agent_id;
+        let prompt = ticket.prompt;
+        std::thread::spawn(move || {
+            let _ = tx.send(runtime::dispatch_agent(&id, &prompt));
+        });
+        self.flash = "dispatching to mlx…".into();
+    }
+
+    fn poll_dispatch(&mut self) {
+        let done = match self.dispatch_rx.as_ref() {
+            Some(rx) => rx.try_recv().ok(),
+            None => return,
+        };
+        if let Some(result) = done {
+            self.dispatch_rx = None;
+            if let Some(id) = self.dispatch_agent_id.take() {
+                let _ = self.kitchen.clear_run(&id);
+            }
+            self.flash = match result {
+                Ok(()) => "reply logged".into(),
+                Err(e) => e.to_string(),
+            };
+        }
     }
 
     fn agent_idx(&self) -> Option<usize> {
@@ -190,7 +233,11 @@ impl App {
 
     fn stop_agent(&mut self, idx: usize) {
         match self.kitchen.kill(idx) {
-            Ok("stopped") => self.flash = "off the heat".into(),
+            Ok("stopped") => {
+                self.dispatch_rx = None;
+                self.dispatch_agent_id = None;
+                self.flash = "off the heat".into();
+            }
             Ok(other) => self.flash = other.into(),
             Err(e) => self.flash = e.to_string(),
         }
@@ -198,13 +245,16 @@ impl App {
 
     fn toggle_autonomous(&mut self, idx: usize) {
         match self.kitchen.toggle_autonomous(idx) {
-            Ok(()) => {
+            Ok(dispatch) => {
                 let a = &self.kitchen.agents[idx];
                 self.flash = if a.autonomous {
                     "let him cook".into()
                 } else {
                     "hands back on".into()
                 };
+                if let Some(ticket) = dispatch {
+                    self.start_dispatch(ticket);
+                }
             }
             Err(e) => self.flash = e.to_string(),
         }
@@ -281,7 +331,12 @@ impl App {
                             self.flash = "need a ticket".into();
                         } else if let Some(i) = self.agent_idx() {
                             match self.kitchen.assign_task(i, &typed) {
-                                Ok(()) => self.flash = "ticket in".into(),
+                                Ok(dispatch) => {
+                                    self.flash = "ticket in".into();
+                                    if let Some(ticket) = dispatch {
+                                        self.start_dispatch(ticket);
+                                    }
+                                }
                                 Err(e) => self.flash = e.to_string(),
                             }
                         } else {
@@ -660,6 +715,7 @@ pub fn run() -> Result<()> {
 fn run_app(terminal: &mut DefaultTerminal) -> Result<()> {
     let mut app = App::new()?;
     loop {
+        app.poll_dispatch();
         if stove_poll_needed(&app) {
             app.refresh_stove_quiet();
         }
@@ -680,14 +736,16 @@ fn stove_poll_needed(app: &App) -> bool {
     app.screen == Screen::Stove
         || app.stove.iter().any(|s| s.heat() == Heat::Warming)
         || app.flash.starts_with("warming ")
+        || app.dispatch_rx.is_some()
 }
 
 fn poll_interval(app: &App) -> Duration {
-    if app.stove.iter().any(|s| s.heat() == Heat::Warming)
+    if app.dispatch_rx.is_some()
+        || app.stove.iter().any(|s| s.heat() == Heat::Warming)
         || app.flash.starts_with("warming ")
     {
         Duration::from_millis(250)
-    } else if app.screen == Screen::Stove {
+    } else if app.screen == Screen::Stove || app.screen == Screen::Inspect {
         Duration::from_millis(750)
     } else {
         Duration::from_secs(60 * 60)
@@ -1066,6 +1124,11 @@ fn draw_inspect(frame: &mut Frame, app: &App, area: Rect) {
         a.rules.join(", ")
     };
     let task = a.task.as_deref().unwrap_or("Idle");
+    let run = a
+        .run
+        .as_ref()
+        .map(|r| format!("{} ({})", r.backend, r.started_at))
+        .unwrap_or_else(|| "—".into());
     let meta = vec![
         Line::from(Span::styled(a.name.clone(), theme::ink_bold())),
         Line::from(""),
@@ -1073,12 +1136,17 @@ fn draw_inspect(frame: &mut Frame, app: &App, area: Rect) {
         Line::from(""),
         kv("status", a.status.label(a.autonomous)),
         kv("task", task),
+        kv("run", &run),
         kv("recipe", recipe),
         kv("skills", &skills),
         kv("rules", &rules),
         Line::from(""),
         Line::from(Span::styled(
-            "status is local until a runtime is wired",
+            if a.autonomous {
+                "runtime · raw query → MLX · [d] stops dispatch"
+            } else {
+                "hands on — [m] LET HIM COOK to dispatch"
+            },
             Style::default()
                 .fg(theme::muted())
                 .add_modifier(Modifier::ITALIC),

@@ -23,16 +23,19 @@ Prefer `edit` over full-file `write` when changing existing files.
 ```bash
 ./install          # once: rust + kitchen on PATH
 kitchen cook       # TUI
-kitchen cook <agent> <task>   # assign ticket (local state until runtime wired)
-kitchen dismiss <agent>       # remove from roster
-kitchen serve      # symlink pantry into Cursor / Claude / Pi
-kitchen stove simmer mlx    # start MLX Qwen server
-kitchen stove cool mlx      # stop MLX server
-kitchen prep       # rebuild after pulling
-./dev cook         # hack without prep (cargo run)
-kitchen dev -w cook  # auto-rebuild on save
+kitchen cook <agent> <task>        # assign ticket, COOKING
+kitchen cook <agent> <task> -a     # LET HIM COOK — dispatches to MLX (raw HTTP)
+kitchen dismiss <agent>            # remove from roster
+kitchen serve                      # symlink pantry into Cursor / Claude / Pi
+kitchen stove simmer mlx           # start MLX Qwen server
+kitchen stove cool mlx             # stop MLX server
+kitchen prep                       # rebuild after pulling
+./dev cook                         # hack without prep (cargo run)
+kitchen dev -w cook                # auto-rebuild on save
 ```
 
 Dest paths for symlinks: `harnesses/targets.json`.
 
-Cook TUI: `./install` once, then `kitchen cook`. Rebuild with `kitchen prep`. Kitchen state is local (`.kitchen/state.json`, `.kitchen/logs/`) — not a live agent runtime yet. Assign work with `kitchen cook <agent> <task>`. Harness symlink UI: `kitchen serve`.
+**Autonomous dispatch:** `-a` / TUI `[m]` sends the ticket to MLX via raw OpenAI HTTP (`/v1/chat/completions`). Kitchen warms the stove if needed. Replies land in `.kitchen/logs/<agent-id>.log`. `[d]` / stop cancels an in-flight dispatch.
+
+Cook TUI: `./install` once, then `kitchen cook`. Rebuild with `kitchen prep`. Agent roster in `.kitchen/state.json`; harness symlink UI via `kitchen serve`.

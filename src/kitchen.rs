@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::repo_root;
 use crate::item::list_names;
+use crate::runtime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -48,6 +49,18 @@ impl Status {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct DispatchTicket {
+    pub agent_id: String,
+    pub prompt: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunRecord {
+    pub started_at: String,
+    pub backend: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
     pub id: String,
@@ -63,6 +76,8 @@ pub struct Agent {
     pub rules: Vec<String>,
     #[serde(default)]
     pub autonomous: bool,
+    #[serde(default)]
+    pub run: Option<RunRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -175,6 +190,7 @@ impl Kitchen {
             skills: Vec::new(),
             rules: Vec::new(),
             autonomous: false,
+            run: None,
         };
         let line = match &agent.task {
             Some(t) => format!("spawned · {t}"),
@@ -186,7 +202,7 @@ impl Kitchen {
         Ok(id)
     }
 
-    pub fn assign_task(&mut self, idx: usize, task: &str) -> Result<()> {
+    pub fn assign_task(&mut self, idx: usize, task: &str) -> Result<Option<DispatchTicket>> {
         let task = task.trim();
         anyhow::ensure!(!task.is_empty(), "task required");
         let agent = self.agents.get_mut(idx).context("no agent")?;
@@ -194,7 +210,7 @@ impl Kitchen {
         agent.status = Status::Cooking;
         append_log(&agent.id, &format!("ticket · {task}"))?;
         self.save()?;
-        Ok(())
+        Ok(Self::dispatch_ticket(self.agents.get(idx).context("no agent")?))
     }
 
     pub fn find_agent(&self, name_or_id: &str) -> Option<usize> {
@@ -210,7 +226,7 @@ impl Kitchen {
         name: &str,
         task: Option<&str>,
         autonomous: bool,
-    ) -> Result<String> {
+    ) -> Result<(String, Option<DispatchTicket>)> {
         let name = name.trim();
         anyhow::ensure!(!name.is_empty(), "agent name required");
         let task = task.map(str::trim).filter(|t| !t.is_empty());
@@ -223,8 +239,8 @@ impl Kitchen {
             })?;
             let id = self.spawn(name, Some(ticket.to_string()))?;
             let i = self.find_agent(&id).context("spawned but missing")?;
-            self.apply_heat(i, autonomous)?;
-            return Ok(self.agents[i].id.clone());
+            let dispatch = self.apply_heat(i, autonomous)?;
+            return Ok((self.agents[i].id.clone(), dispatch));
         };
 
         if let Some(ticket) = task {
@@ -238,46 +254,109 @@ impl Kitchen {
             append_log(&agent.id, "back on the heat")?;
             self.save()?;
         }
-        self.apply_heat(idx, autonomous)?;
-        Ok(self.agents[idx].id.clone())
+        let dispatch = self.apply_heat(idx, autonomous)?;
+        Ok((self.agents[idx].id.clone(), dispatch))
     }
 
-    fn apply_heat(&mut self, idx: usize, autonomous: bool) -> Result<()> {
-        let agent = self.agents.get_mut(idx).context("no agent")?;
-        agent.status = Status::Cooking;
-        agent.autonomous = autonomous;
+    fn apply_heat(&mut self, idx: usize, autonomous: bool) -> Result<Option<DispatchTicket>> {
+        {
+            let agent = self.agents.get_mut(idx).context("no agent")?;
+            agent.status = Status::Cooking;
+            agent.autonomous = autonomous;
+            if autonomous {
+                append_log(&agent.id, "let him cook")?;
+            }
+        }
         if autonomous {
-            append_log(&agent.id, "let him cook")?;
+            self.save()?;
+        }
+        Ok(self.agents.get(idx).and_then(Self::dispatch_ticket))
+    }
+
+    /// Ticket to dispatch after state is saved (autonomous + task).
+    pub fn dispatch_ticket(agent: &Agent) -> Option<DispatchTicket> {
+        if !agent.autonomous {
+            return None;
+        }
+        agent
+            .task
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .map(|task| DispatchTicket {
+                agent_id: agent.id.clone(),
+                prompt: task.to_string(),
+            })
+    }
+
+    pub fn mark_running(&mut self, agent_id: &str, backend: &str) -> Result<()> {
+        let agent = self
+            .agents
+            .iter_mut()
+            .find(|a| a.id == agent_id)
+            .context("no agent")?;
+        agent.run = Some(RunRecord {
+            started_at: chrono::Local::now().to_rfc3339(),
+            backend: backend.to_string(),
+        });
+        self.save()?;
+        Ok(())
+    }
+
+    pub fn clear_run(&mut self, agent_id: &str) -> Result<()> {
+        let agent = self
+            .agents
+            .iter_mut()
+            .find(|a| a.id == agent_id)
+            .context("no agent")?;
+        if agent.run.is_some() {
+            agent.run = None;
             self.save()?;
         }
         Ok(())
     }
 
-    pub fn kill(&mut self, idx: usize) -> Result<&'static str> {
-        let agent = self.agents.get_mut(idx).context("no agent")?;
-        match agent.status {
-            Status::Cooking => {
-                agent.status = Status::Raw;
-                agent.autonomous = false;
-                append_log(&agent.id, "pulled off the heat")?;
-                self.save()?;
-                Ok("stopped")
-            }
-            _ => Ok("not cooking"),
+    fn stop_dispatch(&mut self, agent_id: &str) -> Result<()> {
+        if runtime::cancel_dispatch(agent_id) || runtime::dispatch_active(agent_id) {
+            append_log(agent_id, "dispatch · cancelled")?;
         }
+        self.clear_run(agent_id)?;
+        Ok(())
     }
 
-    /// Remove agent from the roster. Log file is kept in `.kitchen/logs/`.
+    pub fn kill(&mut self, idx: usize) -> Result<&'static str> {
+        let agent_id = self.agents.get(idx).context("no agent")?.id.clone();
+        let cooking = self.agents.get(idx).map(|a| a.status) == Some(Status::Cooking);
+        let had_run = self.agents.get(idx).and_then(|a| a.run.as_ref()).is_some();
+        self.stop_dispatch(&agent_id)?;
+        if !cooking && !had_run {
+            return Ok("not cooking");
+        }
+        let agent = self.agents.get_mut(idx).context("no agent")?;
+        agent.status = Status::Raw;
+        agent.autonomous = false;
+        if cooking {
+            append_log(&agent.id, "pulled off the heat")?;
+        }
+        self.save()?;
+        Ok("stopped")
+    }
+
     pub fn remove_agent(&mut self, idx: usize) -> Result<String> {
-        let agent = self.agents.get(idx).context("no agent")?;
-        let name = agent.name.clone();
-        append_log(&agent.id, "dismissed from the line")?;
+        let (name, id) = {
+            let agent = self.agents.get(idx).context("no agent")?;
+            (agent.name.clone(), agent.id.clone())
+        };
+        self.stop_dispatch(&id)?;
+        append_log(&id, "dismissed from the line")?;
         self.agents.remove(idx);
         self.save()?;
         Ok(name)
     }
 
     pub fn plate(&mut self, idx: usize) -> Result<()> {
+        let agent_id = self.agents.get(idx).context("no agent")?.id.clone();
+        self.stop_dispatch(&agent_id)?;
         let agent = self.agents.get_mut(idx).context("no agent")?;
         agent.status = Status::Cooked;
         agent.autonomous = false;
@@ -287,6 +366,8 @@ impl Kitchen {
     }
 
     pub fn burn(&mut self, idx: usize) -> Result<()> {
+        let agent_id = self.agents.get(idx).context("no agent")?.id.clone();
+        self.stop_dispatch(&agent_id)?;
         let agent = self.agents.get_mut(idx).context("no agent")?;
         agent.status = Status::Burnt;
         agent.autonomous = false;
@@ -295,7 +376,7 @@ impl Kitchen {
         Ok(())
     }
 
-    pub fn toggle_autonomous(&mut self, idx: usize) -> Result<()> {
+    pub fn toggle_autonomous(&mut self, idx: usize) -> Result<Option<DispatchTicket>> {
         let agent = self.agents.get_mut(idx).context("no agent")?;
         if agent.task.is_none() {
             anyhow::bail!("give them a ticket first");
@@ -314,7 +395,7 @@ impl Kitchen {
         };
         append_log(&agent.id, msg)?;
         self.save()?;
-        Ok(())
+        Ok(Self::dispatch_ticket(self.agents.get(idx).context("no agent")?))
     }
 
     pub fn apply_recipe(&mut self, agent_idx: usize, recipe_idx: usize) -> Result<()> {
@@ -398,6 +479,29 @@ impl Kitchen {
 
 pub fn read_log(id: &str) -> String {
     fs::read_to_string(log_path(id)).unwrap_or_default()
+}
+
+pub fn agent_log(id: &str, line: &str) -> Result<()> {
+    append_log(id, line)
+}
+
+/// Strip `-a` / `--autonomous` when clap's trailing task args swallow the flag.
+pub fn parse_cook_words(words: Vec<String>, autonomous: bool) -> (Option<String>, bool) {
+    let mut autonomous = autonomous;
+    let mut kept = Vec::new();
+    for w in words {
+        if w == "-a" || w == "--autonomous" {
+            autonomous = true;
+        } else {
+            kept.push(w);
+        }
+    }
+    let ticket = if kept.is_empty() {
+        None
+    } else {
+        Some(kept.join(" "))
+    };
+    (ticket, autonomous)
 }
 
 #[cfg(test)]
@@ -529,6 +633,7 @@ mod tests {
                     skills: vec![],
                     rules: vec![],
                     autonomous: false,
+                    run: None,
                 },
                 Agent {
                     id: "b".into(),
@@ -539,6 +644,7 @@ mod tests {
                     skills: vec![],
                     rules: vec![],
                     autonomous: false,
+                    run: None,
                 },
             ],
             recipes: vec![],
@@ -571,6 +677,7 @@ mod tests {
                 skills: vec![],
                 rules: vec![],
                 autonomous: false,
+                run: None,
             }],
             recipes: vec![],
         };
@@ -584,5 +691,19 @@ mod tests {
     fn cooking_label_splits_autonomous() {
         assert_eq!(Status::Cooking.label(false), "COOKING");
         assert_eq!(Status::Cooking.label(true), "LET HIM COOK");
+    }
+
+    #[test]
+    fn cook_words_strip_autonomous_flag() {
+        let (ticket, auto) = parse_cook_words(
+            vec!["fix".into(), "login".into(), "-a".into()],
+            false,
+        );
+        assert_eq!(ticket.as_deref(), Some("fix login"));
+        assert!(auto);
+
+        let (ticket, auto) = parse_cook_words(vec!["go".into()], true);
+        assert_eq!(ticket.as_deref(), Some("go"));
+        assert!(auto);
     }
 }

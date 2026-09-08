@@ -150,6 +150,34 @@ pub fn status_one(burner: Burner) -> Result<BurnerStatus> {
     })
 }
 
+pub fn burner_port(burner: Burner) -> u16 {
+    port_for(burner)
+}
+
+/// Start the burner if cold, then wait until HTTP is up or timeout.
+pub fn ensure_simmering(burner: Burner, timeout: Duration) -> Result<()> {
+    match status_one(burner)?.heat() {
+        Heat::Simmering => return Ok(()),
+        Heat::Cold => {
+            simmer(burner)?;
+        }
+        Heat::Warming => {}
+    }
+
+    let deadline = std::time::Instant::now() + timeout;
+    while std::time::Instant::now() < deadline {
+        if status_one(burner)?.heat() == Heat::Simmering {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
+    bail!(
+        "{} did not reach simmering in time — check {}",
+        burner.label(),
+        log_path(burner).display()
+    );
+}
+
 pub fn simmer(burner: Burner) -> Result<String> {
     let st = status_one(burner)?;
     match st.heat() {
