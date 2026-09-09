@@ -13,8 +13,8 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
 
-use kitchen::chat::{save_transcript, stream_reply, ChatMessage, Transcript};
-use kitchen::stove::{self, Burner, CatalogEntry, Heat};
+use slop_chef::chat::{save_transcript, stream_reply, ChatMessage, Transcript};
+use slop_chef::stove::{self, Burner, CatalogEntry, Heat};
 
 use crate::theme;
 
@@ -47,7 +47,7 @@ struct App {
 impl App {
     fn new() -> Result<Self> {
         let catalog = stove::model_catalog().unwrap_or_default();
-        let transcript = match kitchen::chat::load_active()? {
+        let transcript = match slop_chef::chat::load_active()? {
             Some(t) => t,
             None => {
                 let (burner, model) = default_pick(&catalog);

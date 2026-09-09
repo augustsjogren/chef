@@ -11,10 +11,10 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 
-use kitchen::config::{expand_path, Harness};
-use kitchen::item::{classify, items_for, Item, LinkState};
-use kitchen::ops::{link_item, unlink_item};
-use kitchen::{load_harnesses, pantry_root, tool_root};
+use slop_chef::config::{expand_path, Harness};
+use slop_chef::item::{classify, items_for, Item, LinkState};
+use slop_chef::ops::{link_item, unlink_item};
+use slop_chef::{load_harnesses, pantry_root, tool_root};
 
 use crate::theme;
 
@@ -290,7 +290,7 @@ fn draw(frame: &mut Frame, app: &mut App) {
         Paragraph::new(vec![
             Line::from(Span::styled(" SERVE ", theme::ink_bold())),
             Line::from(Span::styled(
-                format!("slop-kitchen: {}", pantry_root().display()),
+                format!("pantry: {}", pantry_root().display()),
                 Style::default().fg(theme::muted()),
             )),
             Line::from(Span::styled(

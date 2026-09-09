@@ -6,19 +6,14 @@ use serde::Deserialize;
 
 /// Personal pantry: skills, rules, extensions.
 ///
-/// Order: `$KITCHEN_PANTRY`, `$KITCHEN_ROOT` (legacy), `~/slop-kitchen`, `~/skill-issue`, `~/kitchen`, walk up from cwd.
+/// Order: `$SLOP_CHEF_PANTRY`, `~/slop-kitchen`, walk up from cwd.
 pub fn pantry_root() -> PathBuf {
-    if let Ok(raw) = std::env::var("KITCHEN_PANTRY") {
+    if let Ok(raw) = std::env::var("SLOP_CHEF_PANTRY") {
         return expand_path(&raw);
     }
-    if let Ok(raw) = std::env::var("KITCHEN_ROOT") {
-        return expand_path(&raw);
-    }
-    for candidate in ["~/slop-kitchen", "~/skill-issue", "~/kitchen"] {
-        let home = expand_path(candidate);
-        if is_pantry_root(&home) {
-            return home;
-        }
+    let home = expand_path("~/slop-kitchen");
+    if is_pantry_root(&home) {
+        return home;
     }
     if let Ok(cwd) = std::env::current_dir() {
         if let Some(found) = find_pantry(&cwd) {
@@ -32,7 +27,7 @@ pub fn pantry_root() -> PathBuf {
     expand_path("~/slop-kitchen")
 }
 
-/// Kitchen CLI repo (harness adapters, built-in tool paths).
+/// slop-chef CLI repo (harness adapters, built-in tool paths).
 pub fn tool_root() -> PathBuf {
     if let Ok(cwd) = std::env::current_dir() {
         if let Some(found) = find_tool_repo(&cwd) {
@@ -44,12 +39,7 @@ pub fn tool_root() -> PathBuf {
 
 /// Local runtime state (stove, chat logs) — not synced via dotfiles.
 pub fn state_dir() -> PathBuf {
-    expand_path("~/.kitchen")
-}
-
-/// Deprecated alias for [`pantry_root`].
-pub fn repo_root() -> PathBuf {
-    pantry_root()
+    expand_path("~/.slop-chef")
 }
 
 fn find_pantry(start: &Path) -> Option<PathBuf> {
@@ -57,11 +47,9 @@ fn find_pantry(start: &Path) -> Option<PathBuf> {
         if is_pantry_root(dir) {
             return Some(dir.to_path_buf());
         }
-        for name in ["slop-kitchen", "skill-issue", "kitchen"] {
-            let nested = dir.join(name);
-            if is_pantry_root(&nested) {
-                return Some(nested);
-            }
+        let nested = dir.join("slop-kitchen");
+        if is_pantry_root(&nested) {
+            return Some(nested);
         }
     }
     None

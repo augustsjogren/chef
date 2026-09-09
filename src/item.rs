@@ -86,15 +86,15 @@ pub struct PantryEntry {
     pub preview: PathBuf,
     /// Skill dir, rule file, or extension file.
     pub root: PathBuf,
-    /// Where this entry was found (`kitchen`, `cursor-user`, …).
+    /// Where this entry was found (`pantry`, `cursor-user`, …).
     pub location: String,
 }
 
-/// Repo-only listing (used by `kitchen serve`).
+/// Repo-only listing (used by `slop-chef serve`).
 pub fn list_kind(kind: &str) -> Result<Vec<PantryEntry>> {
     Ok(iter_sources(kind)?
         .into_iter()
-        .map(|p| entry_from_path(kind, "slop-kitchen", &p))
+        .map(|p| entry_from_path(kind, "pantry", &p))
         .collect())
 }
 
@@ -103,7 +103,7 @@ pub fn list_pantry(kind: &str, all_sources: bool) -> Result<Vec<PantryEntry>> {
     let roots = if all_sources {
         pantry_roots(kind)
     } else {
-        vec![("slop-kitchen", pantry_root().join(kind))]
+        vec![("pantry", pantry_root().join(kind))]
     };
     let mut raw = Vec::new();
     for (label, root) in roots {
@@ -140,11 +140,11 @@ fn pantry_canonical_key(path: &Path) -> String {
 }
 
 /// True when this entry lives in the personal pantry (may also be linked elsewhere).
-pub fn is_kitchen_entry(entry: &PantryEntry) -> bool {
+pub fn is_pantry_entry(entry: &PantryEntry) -> bool {
     entry
         .location
         .split(" · ")
-        .any(|loc| loc == "slop-kitchen")
+        .any(|loc| loc == "pantry")
 }
 
 fn merge_entry_location(existing: &mut PantryEntry, new_loc: &str) {
@@ -169,7 +169,7 @@ fn entry_from_path(kind: &str, location: &str, path: &Path) -> PantryEntry {
 
 fn pantry_roots(kind: &str) -> Vec<(&'static str, PathBuf)> {
     let root = pantry_root();
-    let mut out = vec![("slop-kitchen", root.join(kind))];
+    let mut out = vec![("pantry", root.join(kind))];
     match kind {
         "skills" => {
             out.push(("cursor-user", expand_path("~/.cursor/skills")));
@@ -335,24 +335,24 @@ mod tests {
     }
 
     #[test]
-    fn is_kitchen_entry_detects_repo_and_external() {
+    fn is_pantry_entry_detects_repo_and_external() {
         let repo = PantryEntry {
             name: "foo".into(),
             preview: PathBuf::from("skills/foo/SKILL.md"),
             root: PathBuf::from("skills/foo"),
-            location: "slop-kitchen".into(),
+            location: "pantry".into(),
         };
         let linked = PantryEntry {
-            location: "slop-kitchen · cursor-user".into(),
+            location: "pantry · cursor-user".into(),
             ..repo.clone()
         };
         let external = PantryEntry {
             location: "cursor-user".into(),
             ..repo.clone()
         };
-        assert!(is_kitchen_entry(&repo));
-        assert!(is_kitchen_entry(&linked));
-        assert!(!is_kitchen_entry(&external));
+        assert!(is_pantry_entry(&repo));
+        assert!(is_pantry_entry(&linked));
+        assert!(!is_pantry_entry(&external));
     }
 
     #[test]
@@ -369,13 +369,13 @@ mod tests {
         return;
 
         let raw = vec![
-            ("slop-kitchen".into(), repo.clone()),
+            ("pantry".into(), repo.clone()),
             ("cursor-user".into(), cursor.join("foo")),
         ];
         let out = dedupe_entries("skills", raw);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].name, "foo");
-        assert_eq!(out[0].location, "slop-kitchen · cursor-user");
+        assert_eq!(out[0].location, "pantry · cursor-user");
     }
 
     #[test]

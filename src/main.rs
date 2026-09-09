@@ -12,19 +12,19 @@ use std::process::Command;
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 
-use kitchen::bootstrap;
-use kitchen::import::{find_external_skill, import_skill};
-use kitchen::config::{expand_path, harness_by_id, load_harnesses, tool_root};
-use kitchen::item::{self, classify, items_for};
-use kitchen::ops::{link_item, unlink_item};
-use kitchen::stove::{cool, print_status, simmer, Burner};
+use slop_chef::bootstrap;
+use slop_chef::import::{find_external_skill, import_skill};
+use slop_chef::config::{expand_path, harness_by_id, load_harnesses, tool_root};
+use slop_chef::item::{self, classify, items_for};
+use slop_chef::ops::{link_item, unlink_item};
+use slop_chef::stove::{cool, print_status, simmer, Burner};
 
 #[derive(Parser)]
 #[command(
-    name = "kitchen",
+    name = "slop-chef",
     version,
-    about = "Kitchen CLI — pantry, stove, serve, and chat.",
-    after_help = "Examples:\n  kitchen\n  kitchen pantry\n  kitchen bootstrap\n  kitchen stove\n  kitchen serve\n  kitchen chat\n  kitchen stove simmer mlx"
+    about = "slop-chef — browse slop-kitchen, serve, stove, and chat.",
+    after_help = "Examples:\n  slop-chef\n  slop-chef bootstrap\n  slop-chef stove\n  slop-chef serve\n  slop-chef chat\n  slop-chef stove simmer mlx"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -33,15 +33,16 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Mise en place: build this repo and install `kitchen` on PATH
+    /// Mise en place: build this repo and install `slop-chef` on PATH
     Prep,
     /// Browse skills, rules, and extensions
+    #[command(name = "pantry")]
     Pantry,
     /// Plain chat with a local model on the stove
     Chat,
-    /// Print pantry counts
+    /// Print slop-kitchen counts
     Status,
-    /// Copy an external skill into the kitchen repo (relinks source by default)
+    /// Copy an external skill into slop-kitchen (relinks source by default)
     Import {
         name: String,
         /// Pantry location label (`cursor-user`, `claude-user`, …)
@@ -51,7 +52,7 @@ enum Cmd {
         #[arg(long)]
         keep_source: bool,
     },
-    /// Install kitchen + kitchen-add-skill into a harness skill dir
+    /// Install slop-chef + slop-chef-add-skill into a harness skill dir
     Bootstrap {
         /// Harness id from harnesses/targets.json
         #[arg(long, default_value = "cursor-user")]
@@ -71,12 +72,12 @@ enum Cmd {
         #[command(subcommand)]
         cmd: Option<StoveCmd>,
     },
-    /// Run from repo source (`cargo run`) — no `kitchen prep` between edits
+    /// Run from repo source (`cargo run`) — no `slop-chef prep` between edits
     Dev {
         /// Rebuild and rerun when sources change (needs `cargo install cargo-watch`)
         #[arg(long, short)]
         watch: bool,
-        /// kitchen subcommand and args (default: pantry TUI)
+        /// slop-chef subcommand and args (default: pantry TUI)
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -101,9 +102,9 @@ enum StoveCmd {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
-        None => run_tui_named("kitchen pantry", pantry_ui::run),
-        Some(Cmd::Pantry) => run_tui_named("kitchen pantry", pantry_ui::run),
-        Some(Cmd::Chat) => run_tui_named("kitchen chat", chat_ui::run),
+        None => run_tui_named("slop-chef", pantry_ui::run),
+        Some(Cmd::Pantry) => run_tui_named("slop-chef pantry", pantry_ui::run),
+        Some(Cmd::Chat) => run_tui_named("slop-chef chat", chat_ui::run),
         Some(Cmd::Prep) => prep(),
         Some(Cmd::Status) => print_pantry(),
         Some(Cmd::Import {
@@ -132,8 +133,8 @@ fn prep() -> Result<()> {
     eprintln!("prep: {}", root.display());
     cargo(&root, &["build"])?;
     cargo(&root, &["install", "--path", ".", "--force"])?;
-    eprintln!("prep: `kitchen` is on PATH (need ~/.cargo/bin in PATH)");
-    eprintln!("prep: hacking? use `./dev` or `kitchen dev` — skips install");
+    eprintln!("prep: `slop-chef` is on PATH (need ~/.cargo/bin in PATH)");
+    eprintln!("prep: hacking? use `./dev` or `slop-chef dev` — skips install");
     Ok(())
 }
 
@@ -203,7 +204,7 @@ fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>) -> Result<()> {
     match cmd {
         None => {
             if !tty::stdin_is_tty() {
-                bail!("need a tty; try: kitchen serve status");
+                bail!("need a tty; try: slop-chef serve status");
             }
             serve_ui::run(project)
         }
@@ -255,7 +256,7 @@ fn cmd_bootstrap(harness: &str, project: Option<PathBuf>) -> Result<()> {
     Ok(())
 }
 
-fn print_serve_status(h: &kitchen::Harness, project: Option<&std::path::Path>) -> Result<()> {
+fn print_serve_status(h: &slop_chef::Harness, project: Option<&std::path::Path>) -> Result<()> {
     println!("{} ({})", h.label, h.id);
     if h.project {
         match project {

@@ -1,5 +1,5 @@
 ---
-name: kitchen-add-skill
+name: slop-chef-add-skill
 description: Capture a solved problem into a new agent skill. Use when the user asks to save a workflow as a skill, add a skill from this conversation, or turn recent work into reusable guidance.
 disable-model-invocation: true
 ---
@@ -76,15 +76,15 @@ Keep under 500 lines. Move long reference material to `reference.md`.
 | Cursor project | `.cursor/skills/<name>/SKILL.md` |
 | Claude user | `~/.claude/skills/<name>/SKILL.md` |
 | Claude project | `.claude/skills/<name>/SKILL.md` |
-| Kitchen repo | `skills/<name>/SKILL.md` (canonical; link via `kitchen serve`) |
+| slop-kitchen | `skills/<name>/SKILL.md` (canonical; link via `slop-chef serve`) |
 
 Never write to `~/.cursor/skills-cursor/` — Cursor built-in skills only.
 
 ## After creating
 
 1. Tell the user the path written
-2. Suggest `kitchen` pantry TUI to preview (`kitchen` in terminal)
-3. If written in kitchen repo, suggest `kitchen serve` to link into their harness
+2. Suggest `slop-chef` pantry TUI to preview (`slop-chef` in terminal)
+3. If written in slop-kitchen, suggest `slop-chef serve` to link into their harness
 
 ## Quality bar
 

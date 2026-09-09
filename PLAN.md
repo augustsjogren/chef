@@ -1,23 +1,23 @@
-# Kitchen
+# slop-chef
 
 Same binary. Two jobs. No extra crates.
 
 ## Jobs
 
-1. **Shelf** — skills, rules, extensions live in this repo. `kitchen` browses them. `kitchen serve` symlinks them into Cursor / Claude / Pi.
-2. **Stove** — local model servers. `kitchen stove` starts/stops them. `kitchen chat` talks to whatever is hot.
+1. **Pantry** — skills, rules, extensions live in slop-kitchen. `slop-chef` browses them. `slop-chef serve` symlinks them into Cursor / Claude / Pi.
+2. **Stove** — local model servers. `slop-chef stove` starts/stops them. `slop-chef chat` talks to whatever is hot.
 
-Linking is only `kitchen serve`. Pantry does not attach, plate, or dispatch.
+Linking is only `slop-chef serve`. Pantry does not attach, plate, or dispatch.
 
 ## Surfaces
 
 | Command | Job |
 |---------|-----|
-| `kitchen` / `kitchen pantry` | Browse and preview skills, rules, extensions. Default. |
-| `kitchen serve` | Harness symlink UI and CLI. |
-| `kitchen stove` | Burners + model catalog. CLI `simmer` / `cool` stay. |
-| `kitchen chat` | Naked local chat. |
+| `slop-chef` / `slop-chef pantry` | Browse and preview skills, rules, extensions. Default. |
+| `slop-chef serve` | Harness symlink UI and CLI. |
+| `slop-chef stove` | Burners + model catalog. CLI `simmer` / `cool` stay. |
+| `slop-chef chat` | Naked local chat. |
 
 ## Layout
 
-Canonical `skills/` `rules/` `extensions/` `harnesses/`. Runtime in `.kitchen/` (stove.json, chats, logs). Dest paths: `harnesses/targets.json`.
+Canonical pantry in `~/slop-kitchen`. Tool repo has `harnesses/`. Runtime in `~/.slop-chef/` (stove.json, chats, logs). Dest paths: `harnesses/targets.json`.

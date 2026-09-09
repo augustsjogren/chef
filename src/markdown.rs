@@ -1,4 +1,4 @@
-//! Markdown to ratatui lines, styled with the kitchen palette.
+//! Markdown to ratatui lines, styled with the slop-chef palette.
 
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use ratatui::style::{Modifier, Style};

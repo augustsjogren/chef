@@ -20,7 +20,7 @@ pub fn import_skill(
     location: &str,
     keep_source: bool,
 ) -> Result<ImportResult> {
-    if item::is_kitchen_entry(&PantryEntry {
+    if item::is_pantry_entry(&PantryEntry {
         name: name.into(),
         preview: source.join("SKILL.md"),
         location: location.into(),
@@ -53,11 +53,11 @@ pub fn import_skill(
     })
 }
 
-/// Find a skill that exists only outside the kitchen repo.
+/// Find a skill that exists only outside slop-kitchen.
 pub fn find_external_skill(name: &str, from: Option<&str>) -> Result<(String, PathBuf)> {
     let mut matches: Vec<(String, PathBuf)> = item::list_pantry("skills", true)?
         .into_iter()
-        .filter(|e| e.name == name && !item::is_kitchen_entry(e))
+        .filter(|e| e.name == name && !item::is_pantry_entry(e))
         .filter(|e| from.is_none_or(|f| e.location == f))
         .map(|e| (e.location.clone(), e.root))
         .collect();
@@ -124,7 +124,7 @@ mod tests {
         return;
 
         let tmp = tempfile::tempdir().unwrap();
-        let repo = tmp.path().join("kitchen");
+        let repo = tmp.path().join("pantry");
         fs::create_dir_all(repo.join("skills")).unwrap();
         let external_root = tmp.path().join("cursor");
         fs::create_dir_all(&external_root).unwrap();
@@ -133,7 +133,7 @@ mod tests {
         fs::write(external.join("SKILL.md"), "skill body").unwrap();
         fs::write(external.join("extra.md"), "more").unwrap();
 
-        std::env::set_var("KITCHEN_PANTRY", &repo);
+        std::env::set_var("SLOP_CHEF_PANTRY", &repo);
         let dest = repo.join("skills/my-skill");
         import_skill("my-skill", &external, "cursor-user", false).unwrap();
 
@@ -145,6 +145,6 @@ mod tests {
             "skill body"
         );
         assert!(fs::symlink_metadata(&external).unwrap().file_type().is_symlink());
-        std::env::remove_var("KITCHEN_PANTRY");
+        std::env::remove_var("SLOP_CHEF_PANTRY");
     }
 }

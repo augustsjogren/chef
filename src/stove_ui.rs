@@ -10,7 +10,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
 
-use kitchen::stove::{self, Burner, BurnerStatus, Heat};
+use slop_chef::stove::{self, Burner, BurnerStatus, Heat};
 
 use crate::theme;
 
@@ -242,7 +242,7 @@ fn burner_detail(st: &BurnerStatus) -> Vec<Line<'static>> {
     let pid = st.pid.map(|p| p.to_string()).unwrap_or_else(|| "—".into());
     let owner = match heat {
         Heat::Cold => "—".to_string(),
-        _ if st.managed => "kitchen".to_string(),
+        _ if st.managed => "slop-chef".to_string(),
         _ => "external".to_string(),
     };
     let url = format!("127.0.0.1:{}", st.port);

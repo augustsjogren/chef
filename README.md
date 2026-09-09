@@ -1,4 +1,4 @@
-# kitchen
+# slop-chef
 
 CLI for browsing [slop-kitchen](https://github.com/augustsjogren/slop-kitchen), importing skills, linking into Cursor/Claude/Pi, and running local models.
 
@@ -7,36 +7,37 @@ CLI for browsing [slop-kitchen](https://github.com/augustsjogren/slop-kitchen), 
 | Repo | Role |
 |------|------|
 | [augustsjogren/slop-kitchen](https://github.com/augustsjogren/slop-kitchen) | Skills, rules, extensions |
-| [augustsjogren/kitchen](https://github.com/augustsjogren/kitchen) | This CLI |
+| [augustsjogren/slop-chef](https://github.com/augustsjogren/slop-chef) | This CLI |
 
 ## Install
 
 ```bash
 ./install
 git clone git@github.com:augustsjogren/slop-kitchen.git ~/slop-kitchen
-kitchen bootstrap && kitchen serve
-kitchen
+slop-chef bootstrap && slop-chef serve
+slop-chef
 ```
 
-After pulling **this** repo: `kitchen prep`.
+After pulling **this** repo: `slop-chef prep`.
 
 ## CLI
 
+The binary is **`slop-chef`**. Bare `slop-chef` opens the browse TUI. Skills live in the **slop-kitchen** repo.
+
 | Command | What |
 |---------|------|
-| `kitchen` | Browse `~/slop-kitchen` (**A** = all sources, **I** = import) |
-| `kitchen import <name>` | Copy external skill into slop-kitchen |
-| `kitchen bootstrap` | Install meta-skills into a harness |
-| `kitchen serve` | Symlink slop-kitchen into Cursor / Claude / Pi |
-| `kitchen stove` / `kitchen chat` | Local models |
-| `kitchen status` | Skill counts |
-| `kitchen prep` | Rebuild + reinstall CLI |
+| `slop-chef` | Browse slop-kitchen (**A** = all sources, **I** = import) |
+| `slop-chef import <name>` | Copy external skill into slop-kitchen |
+| `slop-chef bootstrap` | Install meta-skills into a harness |
+| `slop-chef serve` | Symlink slop-kitchen into Cursor / Claude / Pi |
+| `slop-chef stove` / `slop-chef chat` | Local models |
+| `slop-chef status` | slop-kitchen counts |
+| `slop-chef prep` | Rebuild + reinstall CLI |
 
-Runtime state: `~/.kitchen/`
+Runtime state: `~/.slop-chef/`
 
 ## Env
 
 | Variable | Default |
 |----------|---------|
-| `KITCHEN_PANTRY` | `~/slop-kitchen` |
-| `KITCHEN_ROOT` | legacy alias |
+| `SLOP_CHEF_PANTRY` | `~/slop-kitchen` |

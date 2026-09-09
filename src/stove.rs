@@ -356,7 +356,7 @@ pub fn print_status() -> Result<()> {
         let heat = st.heat().label();
         let pid = st.pid.map(|p| p.to_string()).unwrap_or_else(|| "—".into());
         let tag = if st.managed {
-            "kitchen"
+            "slop-chef"
         } else if st.heat() != Heat::Cold {
             "external"
         } else {
@@ -379,8 +379,8 @@ pub fn print_status() -> Result<()> {
 
 fn port_for(burner: Burner) -> u16 {
     let key = match burner {
-        Burner::Mlx => "KITCHEN_MLX_PORT",
-        Burner::Ollama => "KITCHEN_OLLAMA_PORT",
+        Burner::Mlx => "SLOP_CHEF_MLX_PORT",
+        Burner::Ollama => "SLOP_CHEF_OLLAMA_PORT",
     };
     std::env::var(key)
         .ok()
@@ -560,7 +560,7 @@ fn which(bin: &str) -> Result<PathBuf> {
 }
 
 fn spawn_logged(cmd: &mut Command, burner: Burner) -> Result<u32> {
-    fs::create_dir_all(kitchen_dir().join("logs"))?;
+    fs::create_dir_all(state_dir().join("logs"))?;
     let log = log_path(burner);
     let stamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
     {
@@ -571,7 +571,7 @@ fn spawn_logged(cmd: &mut Command, burner: Burner) -> Result<u32> {
             .with_context(|| format!("open log {}", log.display()))?;
         writeln!(
             file,
-            "\n--- kitchen stove simmer {} @ {stamp} ---",
+            "\n--- slop-chef stove simmer {} @ {stamp} ---",
             burner.id()
         )?;
     }
@@ -601,16 +601,12 @@ fn spawn_logged(cmd: &mut Command, burner: Burner) -> Result<u32> {
     Ok(pid)
 }
 
-fn kitchen_dir() -> PathBuf {
-    state_dir()
-}
-
 fn state_path() -> PathBuf {
-    kitchen_dir().join("stove.json")
+    state_dir().join("stove.json")
 }
 
 pub fn log_path(burner: Burner) -> PathBuf {
-    kitchen_dir()
+    state_dir()
         .join("logs")
         .join(format!("{}.log", burner.log_name()))
 }

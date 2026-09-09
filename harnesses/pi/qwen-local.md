@@ -35,7 +35,7 @@ Harmless startup 404s from pi-local probing `/v1/models/status` — `/v1/models`
 
 ## Extension: `cap-tool-output.ts`
 
-Location: `extensions/cap-tool-output.ts` in this repo → `kitchen serve link pi` → `~/.pi/agent/extensions/`.
+Location: `extensions/cap-tool-output.ts` in this repo → `slop-chef serve link pi` → `~/.pi/agent/extensions/`.
 
 | Hook | What it does |
 |------|----------------|

@@ -1,11 +1,11 @@
 [package]
-name = "kitchen"
+name = "slop-chef"
 version = "0.1.0"
 edition = "2021"
-description = "Kitchen — pantry for agent skills, plus serve, stove, and chat."
+description = "slop-chef — browse slop-kitchen, serve, stove, and chat."
 
 [[bin]]
-name = "kitchen"
+name = "slop-chef"
 path = "src/main.rs"
 
 [dependencies]

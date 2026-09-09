@@ -7,7 +7,7 @@ node_modules/
 .venv/
 __pycache__/
 /target/
-.kitchen/state.json
-.kitchen/stove.json
-.kitchen/logs/
-.kitchen/chats/
+.slop-chef/state.json
+.slop-chef/stove.json
+.slop-chef/logs/
+.slop-chef/chats/

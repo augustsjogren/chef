@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev — run kitchen from source (cargo run). Rebuilds when sources change.
+# dev — run slop-chef from source (cargo run). Rebuilds when sources change.
 set -euo pipefail
 root="$(cd "$(dirname "$0")" && pwd)"
 cd "$root"
