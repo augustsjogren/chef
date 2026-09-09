@@ -1,11 +1,9 @@
-//! Kitchen: agent roster state and harness symlink tooling.
+//! Kitchen: pantry items, harness symlinks, stove, and chat.
 
 pub mod chat;
 pub mod config;
 pub mod item;
-pub mod kitchen;
 pub mod ops;
-pub mod runtime;
 pub mod stove;
 
 pub use config::{load_harnesses, repo_root, Harness, KindSpec};

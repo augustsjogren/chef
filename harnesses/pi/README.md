@@ -28,6 +28,4 @@ Symlink: `extensions/cap-tool-output.ts` → `~/.pi/agent/extensions/cap-tool-ou
 
 MLX server on `:8080`, compaction, tool caps: [qwen-local.md](qwen-local.md).
 
-**Recipe:** In Kitchen TUI (`kitchen cook`), open **Recipes** → **Local Qwen 9B** → attach to an agent. Bundles skill `local-pi-qwen` + rule `prefer-edit-over-write`.
-
 For Pi sessions in other repos, copy `rules/prefer-edit-over-write.md` into that project's `AGENTS.md` or install via a Pi package.

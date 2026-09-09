@@ -22,4 +22,4 @@ Do not commit secrets, model weights, or live `settings.json` dumps. Point at pa
 
 Prefer `edit` over full-file `write` when changing existing files.
 
-Install: `./install` then `kitchen cook`. Symlink into Cursor/Claude/Pi: `kitchen serve`.
+Install: `./install` then `kitchen`. Symlink into Cursor/Claude/Pi: `kitchen serve`.

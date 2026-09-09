@@ -31,7 +31,7 @@ fn find_repo(start: &Path) -> Option<PathBuf> {
 fn is_kitchen_repo(dir: &Path) -> bool {
     dir.join("Cargo.toml").is_file()
         && dir.join("harnesses/targets.json").is_file()
-        && dir.join("src/kitchen.rs").is_file()
+        && dir.join("src/lib.rs").is_file()
 }
 
 #[derive(Debug, Clone, Deserialize)]

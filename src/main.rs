@@ -4,7 +4,6 @@ mod serve_ui;
 mod stove_ui;
 mod theme;
 mod tty;
-mod ui;
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -13,10 +12,8 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 
 use kitchen::config::{expand_path, harness_by_id, load_harnesses, repo_root};
-use kitchen::item::{classify, items_for};
-use kitchen::kitchen::{parse_cook_words, Kitchen};
+use kitchen::item::{self, classify, items_for};
 use kitchen::ops::{link_item, unlink_item};
-use kitchen::runtime;
 use kitchen::stove::{cool, print_status, simmer, Burner};
 
 #[derive(Parser)]
@@ -24,7 +21,7 @@ use kitchen::stove::{cool, print_status, simmer, Burner};
     name = "kitchen",
     version,
     about = "Kitchen CLI — pantry, stove, serve, and chat.",
-    after_help = "Examples:\n  kitchen\n  kitchen pantry\n  kitchen stove\n  kitchen serve\n  kitchen chat\n  kitchen cook\n  kitchen stove simmer mlx"
+    after_help = "Examples:\n  kitchen\n  kitchen pantry\n  kitchen stove\n  kitchen serve\n  kitchen chat\n  kitchen stove simmer mlx"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -35,25 +32,12 @@ struct Cli {
 enum Cmd {
     /// Mise en place: build this repo and install `kitchen` on PATH
     Prep,
-    /// Browse skills, rules, extensions, and recipes
+    /// Browse skills, rules, and extensions
     Pantry,
     /// Plain chat with a local model on the stove
     Chat,
-    /// Open the TUI, or put an agent on a ticket
-    Cook {
-        /// Agent name (spawned if new)
-        agent: Option<String>,
-        /// Task words after the name
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        task: Vec<String>,
-        /// LET HIM COOK — hands off
-        #[arg(short, long)]
-        autonomous: bool,
-    },
-    /// Print who's on the line
+    /// Print pantry counts
     Status,
-    /// Remove an agent from the roster
-    Dismiss { agent: String },
     /// Symlink skills/rules/extensions into Cursor / Claude / Pi
     Serve {
         #[arg(long)]
@@ -99,43 +83,8 @@ fn main() -> Result<()> {
         None => run_tui_named("kitchen pantry", pantry_ui::run),
         Some(Cmd::Pantry) => run_tui_named("kitchen pantry", pantry_ui::run),
         Some(Cmd::Chat) => run_tui_named("kitchen chat", chat_ui::run),
-        Some(Cmd::Cook {
-            agent,
-            task,
-            autonomous,
-        }) => match agent {
-            None if task.is_empty() => run_tui_named("kitchen cook", ui::run),
-            None => bail!(
-                "need an agent name before the ticket — got: {}",
-                task.join(" ")
-            ),
-            Some(agent) => {
-                let (ticket, autonomous) = parse_cook_words(task, autonomous);
-                let mut k = Kitchen::load()?;
-                let (id, dispatch) = k.cook_order(&agent, ticket.as_deref(), autonomous)?;
-                if let Some(ticket) = dispatch {
-                    k.mark_running(&ticket.agent_id, "raw")?;
-                    let result = runtime::dispatch_agent(&ticket.agent_id, &ticket.prompt);
-                    k.clear_run(&ticket.agent_id)?;
-                    result?;
-                }
-                let a = k
-                    .agents
-                    .iter()
-                    .find(|a| a.id == id)
-                    .context("missing after cook")?;
-                println!(
-                    "{}  {}  {}",
-                    a.status.label(a.autonomous),
-                    a.name,
-                    a.task.as_deref().unwrap_or("Idle")
-                );
-                Ok(())
-            }
-        },
         Some(Cmd::Prep) => prep(),
-        Some(Cmd::Status) => print_kitchen(),
-        Some(Cmd::Dismiss { agent }) => dismiss_agent(&agent),
+        Some(Cmd::Status) => print_pantry(),
         Some(Cmd::Serve { project, cmd }) => serve(project, cmd),
         Some(Cmd::Stove { cmd }) => stove(cmd),
         Some(Cmd::Dev { watch, args }) => dev(watch, args),
@@ -248,36 +197,12 @@ fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>) -> Result<()> {
     }
 }
 
-fn dismiss_agent(name: &str) -> Result<()> {
-    let mut k = Kitchen::load()?;
-    let idx = k
-        .find_agent(name)
-        .with_context(|| format!("no agent: {name}"))?;
-    let removed = k.remove_agent(idx)?;
-    println!("dismissed {removed}");
-    Ok(())
-}
-
-fn print_kitchen() -> Result<()> {
-    let k = Kitchen::load()?;
-    let (skills, rules) = Kitchen::pantry()?;
-    if k.agents.is_empty() {
-        println!("kitchen empty  (stove's cold)");
-    }
-    for a in &k.agents {
-        let task = a.task.as_deref().unwrap_or("Idle");
-        println!(
-            "{}  {:<16}  {:<14}  {task}",
-            a.status.bullet(),
-            a.name,
-            a.status.label(a.autonomous)
-        );
-    }
+fn print_pantry() -> Result<()> {
     println!(
-        "skills {}  rules {}  recipes {}",
-        skills.len(),
-        rules.len(),
-        k.recipes.len()
+        "skills {}  rules {}  extensions {}",
+        item::list_kind("skills")?.len(),
+        item::list_kind("rules")?.len(),
+        item::list_kind("extensions")?.len()
     );
     Ok(())
 }

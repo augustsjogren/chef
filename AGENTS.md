@@ -16,7 +16,7 @@ Prefer `edit` over full-file `write` when changing existing files.
 | Rules | `rules/<name>.md` | One concern per file; keep short |
 | Extensions | `extensions/` | Pi `*.ts` hooks; symlink via `kitchen serve` |
 | Harness notes | `harnesses/<name>/` | Install paths only — no duplicate skill text |
-| Runtime state | `.kitchen/` | Local agent state + logs (gitignored except `recipes.json`) |
+| Runtime state | `.kitchen/` | Local stove + chat logs (gitignored) |
 
 ## Kitchen CLI
 
@@ -24,13 +24,9 @@ Prefer `edit` over full-file `write` when changing existing files.
 ./install          # once: rust + kitchen on PATH
 kitchen            # pantry TUI
 kitchen pantry     # same
-kitchen stove      # burner TUI
 kitchen serve      # harness symlink TUI
+kitchen stove      # burner TUI
 kitchen chat       # plain local-model chat
-kitchen cook       # roster TUI (frozen)
-kitchen cook <agent> <task>        # assign ticket, COOKING
-kitchen cook <agent> <task> -a     # LET HIM COOK — dispatches to MLX (raw HTTP)
-kitchen dismiss <agent>            # remove from roster
 kitchen stove simmer mlx           # start MLX Qwen server
 kitchen stove cool mlx             # stop MLX server
 kitchen prep                       # rebuild after pulling
@@ -40,6 +36,4 @@ kitchen dev -w                     # auto-rebuild on save
 
 Dest paths for symlinks: `harnesses/targets.json`.
 
-**Autonomous dispatch:** `-a` / TUI `[m]` sends the ticket to MLX via raw OpenAI HTTP (`/v1/chat/completions`). Kitchen warms the stove if needed. Replies land in `.kitchen/logs/<agent-id>.log`. `[d]` / stop cancels an in-flight dispatch.
-
-Cook TUI: `kitchen cook` (frozen). Rebuild with `kitchen prep`. Agent roster in `.kitchen/state.json`. Pantry is the default TUI (`kitchen`). Harness symlink UI via `kitchen serve`.
+Pantry is the default TUI (`kitchen`). Link into Cursor / Claude / Pi with `kitchen serve`. Local models: `kitchen stove` and `kitchen chat`.

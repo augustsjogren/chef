@@ -1,4 +1,4 @@
-//! Browse skills, rules, extensions, and recipes. Preview only — link via serve.
+//! Browse skills, rules, and extensions. Preview only — link via serve.
 
 use std::fs;
 use std::time::Duration;
@@ -12,7 +12,6 @@ use ratatui::widgets::{Block, BorderType, Clear, List, ListItem, ListState, Para
 use ratatui::{DefaultTerminal, Frame};
 
 use kitchen::item::{self, PantryEntry};
-use kitchen::kitchen::{Kitchen, Recipe};
 
 use crate::theme;
 
@@ -23,18 +22,16 @@ enum Kind {
     Skills,
     Rules,
     Extensions,
-    Recipes,
 }
 
 impl Kind {
-    const ALL: [Kind; 4] = [Self::Skills, Self::Rules, Self::Extensions, Self::Recipes];
+    const ALL: [Kind; 3] = [Self::Skills, Self::Rules, Self::Extensions];
 
     fn id(self) -> &'static str {
         match self {
             Self::Skills => "skills",
             Self::Rules => "rules",
             Self::Extensions => "extensions",
-            Self::Recipes => "recipes",
         }
     }
 
@@ -54,7 +51,6 @@ impl Kind {
 struct App {
     kind: Kind,
     entries: Vec<PantryEntry>,
-    recipes: Vec<Recipe>,
     list: ListState,
     preview: String,
     preview_scroll: u16,
@@ -62,11 +58,9 @@ struct App {
 
 impl App {
     fn new() -> Result<Self> {
-        let kitchen = Kitchen::load()?;
         let mut app = Self {
             kind: Kind::Skills,
             entries: Vec::new(),
-            recipes: kitchen.recipes,
             list: ListState::default(),
             preview: String::new(),
             preview_scroll: 0,
@@ -75,19 +69,9 @@ impl App {
         Ok(app)
     }
 
-    fn names(&self) -> Vec<String> {
-        match self.kind {
-            Kind::Recipes => self.recipes.iter().map(|r| r.name.clone()).collect(),
-            _ => self.entries.iter().map(|e| e.name.clone()).collect(),
-        }
-    }
-
     fn reload(&mut self) -> Result<()> {
-        self.entries = match self.kind {
-            Kind::Recipes => Vec::new(),
-            k => item::list_kind(k.id())?,
-        };
-        let n = self.names().len();
+        self.entries = item::list_kind(self.kind.id())?;
+        let n = self.entries.len();
         if n == 0 {
             self.list.select(None);
         } else {
@@ -106,7 +90,7 @@ impl App {
     }
 
     fn move_list(&mut self, delta: i32) {
-        let n = self.names().len();
+        let n = self.entries.len();
         if n == 0 {
             return;
         }
@@ -118,12 +102,9 @@ impl App {
     }
 
     fn refresh_preview(&mut self) {
-        self.preview = match self.kind {
-            Kind::Recipes => recipe_preview(self.list.selected().and_then(|i| self.recipes.get(i))),
-            _ => match self.list.selected().and_then(|i| self.entries.get(i)) {
-                Some(e) => read_preview(&e.preview),
-                None => empty_kind_msg(self.kind).into(),
-            },
+        self.preview = match self.list.selected().and_then(|i| self.entries.get(i)) {
+            Some(e) => read_preview(&e.preview),
+            None => empty_kind_msg(self.kind).into(),
         };
     }
 
@@ -232,8 +213,7 @@ fn draw_tabs(frame: &mut Frame, app: &App, area: Rect) {
 fn draw_kinds(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_widget(Clear, area);
     let title = format!(" {} ", app.kind.id().to_uppercase());
-    let names = app.names();
-    let items: Vec<ListItem> = if names.is_empty() {
+    let items: Vec<ListItem> = if app.entries.is_empty() {
         vec![ListItem::new(Span::styled(
             empty_kind_msg(app.kind),
             Style::default()
@@ -241,7 +221,10 @@ fn draw_kinds(frame: &mut Frame, app: &mut App, area: Rect) {
                 .add_modifier(Modifier::ITALIC),
         ))]
     } else {
-        names.into_iter().map(ListItem::new).collect()
+        app.entries
+            .iter()
+            .map(|e| ListItem::new(e.name.as_str()))
+            .collect()
     };
     let list = List::new(items)
         .block(
@@ -328,23 +311,6 @@ fn expand_tabs(text: &str, tab: usize) -> String {
     out
 }
 
-fn recipe_preview(recipe: Option<&Recipe>) -> String {
-    let Some(r) = recipe else {
-        return "no recipes.\na recipe is a named plate of skills + rules.".into();
-    };
-    let skills = if r.skills.is_empty() {
-        "—".to_string()
-    } else {
-        r.skills.join(", ")
-    };
-    let rules = if r.rules.is_empty() {
-        "—".to_string()
-    } else {
-        r.rules.join(", ")
-    };
-    format!("{}\n\nskills  {skills}\nrules   {rules}", r.name)
-}
-
 fn read_preview(path: &std::path::Path) -> String {
     match fs::read_to_string(path) {
         Ok(raw) => {
@@ -366,7 +332,6 @@ fn empty_kind_msg(kind: Kind) -> &'static str {
         Kind::Skills => "no skills in skills/",
         Kind::Rules => "no rules in rules/",
         Kind::Extensions => "no extensions in extensions/",
-        Kind::Recipes => "no recipes",
     }
 }
 
@@ -397,14 +362,14 @@ mod tests {
     }
 
     #[test]
-    fn kind_cycles_all_four() {
+    fn kind_cycles_all_three() {
         let mut k = Kind::Skills;
         for expected in Kind::ALL {
             assert_eq!(k, expected);
             k = k.next();
         }
         assert_eq!(k, Kind::Skills);
-        assert_eq!(Kind::Skills.prev(), Kind::Recipes);
-        assert_eq!(Kind::Recipes.next(), Kind::Skills);
+        assert_eq!(Kind::Skills.prev(), Kind::Extensions);
+        assert_eq!(Kind::Extensions.next(), Kind::Skills);
     }
 }

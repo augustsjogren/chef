@@ -12,7 +12,7 @@ disable-model-invocation: true
 - `rules/` — short persistent guidance (`.md`)
 - `extensions/` — Pi TypeScript hooks
 - `harnesses/` — where each harness loads definitions (`targets.json` for symlink paths)
-- `.kitchen/` — local Kitchen runtime (agents, recipes, logs)
+- `.kitchen/` — local stove + chat logs
 
 ## Add a skill
 
@@ -33,15 +33,11 @@ Put `*.ts` in `extensions/`, then `kitchen serve` → **Pi** harness → link.
 ## Kitchen CLI
 
 ```bash
-kitchen cook                    # TUI
-kitchen cook <agent> <task>     # assign work (local state until runtime wired)
-kitchen dismiss <agent>         # remove from roster
-kitchen serve                   # symlink pantry
-kitchen prep                    # rebuild after pulling
+kitchen            # pantry TUI
+kitchen serve      # symlink pantry
+kitchen stove      # local model servers
+kitchen chat       # plain local-model chat
+kitchen prep       # rebuild after pulling
 ```
-
-## Recipes
-
-Reusable skill+rule plates live in `.kitchen/recipes.json`. Example: **Local Qwen 9B** bundles `local-pi-qwen` + `prefer-edit-over-write`.
 
 Do not fork the same skill into Cursor/Claude/Pi copies unless a harness cannot share the file.
