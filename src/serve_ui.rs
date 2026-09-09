@@ -290,7 +290,7 @@ fn draw(frame: &mut Frame, app: &mut App) {
         Paragraph::new(vec![
             Line::from(Span::styled(" SERVE ", theme::ink_bold())),
             Line::from(Span::styled(
-                format!("pantry: {}", pantry_root().display()),
+                format!("slop-kitchen: {}", pantry_root().display()),
                 Style::default().fg(theme::muted()),
             )),
             Line::from(Span::styled(

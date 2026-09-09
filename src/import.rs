@@ -26,7 +26,7 @@ pub fn import_skill(
         location: location.into(),
         root: source.to_path_buf(),
     }) {
-        bail!("skill already in pantry");
+        bail!("skill already in slop-kitchen");
     }
     if !source.join("SKILL.md").is_file() {
         bail!("not a skill directory: {}", source.display());
@@ -34,7 +34,7 @@ pub fn import_skill(
 
     let dest = pantry_root().join("skills").join(name);
     if dest.exists() {
-        bail!("skills/{name} already exists in pantry");
+        bail!("skills/{name} already exists in slop-kitchen");
     }
 
     copy_dir_all(source, &dest).with_context(|| format!("copy into {}", dest.display()))?;

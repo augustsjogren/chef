@@ -1,28 +1,21 @@
 # kitchen
 
-CLI for a personal agent skill pantry — browse, import, link into Cursor/Claude/Pi, and run local models.
+CLI for browsing [slop-kitchen](https://github.com/augustsjogren/slop-kitchen), importing skills, linking into Cursor/Claude/Pi, and running local models.
 
-**Your skills live in [pantry](https://github.com/augustsjogren/pantry)** (`~/kitchen`), not in this repo. See [PANTRY.md](PANTRY.md).
+**Skills live in [slop-kitchen](https://github.com/augustsjogren/slop-kitchen)** (`~/slop-kitchen`), not here. See [SLOP-KITCHEN.md](SLOP-KITCHEN.md).
 
 | Repo | Role |
 |------|------|
-| [augustsjogren/kitchen](https://github.com/augustsjogren/kitchen) | This tool (Rust CLI, harness adapters) |
-| [augustsjogren/pantry](https://github.com/augustsjogren/pantry) | Your skills, rules, extensions → `~/kitchen` |
-
-CI runs `cargo fmt --check`, `cargo clippy`, and `cargo test` on push/PR.
+| [augustsjogren/slop-kitchen](https://github.com/augustsjogren/slop-kitchen) | Skills, rules, extensions |
+| [augustsjogren/kitchen](https://github.com/augustsjogren/kitchen) | This CLI |
 
 ## Install
 
 ```bash
 ./install
-```
-
-Then clone [pantry](https://github.com/augustsjogren/pantry) to `~/kitchen`, or set `KITCHEN_PANTRY`.
-
-```bash
-kitchen bootstrap    # meta-skills → Cursor
-kitchen serve        # link ~/kitchen → harnesses
-kitchen              # pantry TUI
+git clone git@github.com:augustsjogren/slop-kitchen.git ~/slop-kitchen
+kitchen bootstrap && kitchen serve
+kitchen
 ```
 
 After pulling **this** repo: `kitchen prep`.
@@ -31,21 +24,19 @@ After pulling **this** repo: `kitchen prep`.
 
 | Command | What |
 |---------|------|
-| `kitchen` / `kitchen pantry` | Browse `~/kitchen` (+ all sources with **A**) |
-| `kitchen import <name>` | Copy external skill into pantry |
-| `kitchen bootstrap` | Install kitchen meta-skills into a harness |
-| `kitchen serve` | Symlink pantry into Cursor / Claude / Pi |
+| `kitchen` | Browse `~/slop-kitchen` (**A** = all sources, **I** = import) |
+| `kitchen import <name>` | Copy external skill into slop-kitchen |
+| `kitchen bootstrap` | Install meta-skills into a harness |
+| `kitchen serve` | Symlink slop-kitchen into Cursor / Claude / Pi |
 | `kitchen stove` / `kitchen chat` | Local models |
-| `kitchen status` | Pantry counts |
+| `kitchen status` | Skill counts |
 | `kitchen prep` | Rebuild + reinstall CLI |
 
-Runtime state (stove, chat logs): `~/.kitchen/` — not synced.
+Runtime state: `~/.kitchen/`
 
 ## Env
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `KITCHEN_PANTRY` | `~/kitchen` | Skills, rules, extensions |
-| `KITCHEN_ROOT` | — | Legacy alias for `KITCHEN_PANTRY` |
-
-Harness paths: `harnesses/targets.json` in this repo.
+| Variable | Default |
+|----------|---------|
+| `KITCHEN_PANTRY` | `~/slop-kitchen` |
+| `KITCHEN_ROOT` | legacy alias |

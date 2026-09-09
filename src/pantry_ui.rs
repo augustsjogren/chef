@@ -121,7 +121,7 @@ impl App {
             return Ok(());
         };
         if item::is_kitchen_entry(&entry) {
-            self.flash = "already in pantry".into();
+            self.flash = "already in slop-kitchen".into();
             return Ok(());
         }
         match import_skill(&entry.name, &entry.root, &entry.location, false) {
@@ -262,12 +262,12 @@ fn draw(frame: &mut Frame, app: &mut App) {
         ))
     } else if app.all_sources && app.kind == Kind::Skills {
         Line::from(Span::styled(
-            "[TAB]:Kind  [J/K]:Move  [A]:Sources  [I]:Import  [PGUP/DN]:Preview  [Q]:Quit  ·  [k]pantry  [a]other",
+            "[TAB]:Kind  [J/K]:Move  [A]:Sources  [I]:Import  [PGUP/DN]:Preview  [Q]:Quit  ·  [k]repo  [a]other",
             Style::default().fg(theme::muted()),
         ))
     } else if app.all_sources {
         Line::from(Span::styled(
-            "[TAB]:Kind  [J/K]:Move  [A]:Sources (all)  [PGUP/DN]:Preview  [Q]:Quit  ·  [k]pantry  [a]other",
+            "[TAB]:Kind  [J/K]:Move  [A]:Sources (all)  [PGUP/DN]:Preview  [Q]:Quit  ·  [k]repo  [a]other",
             Style::default().fg(theme::muted()),
         ))
     } else {
@@ -287,7 +287,7 @@ fn draw_tabs(frame: &mut Frame, app: &App, area: Rect) {
             Block::bordered()
                 .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(theme::heat()))
-                .title(" PANTRY ")
+                .title(" SLOP-KITCHEN ")
                 .title_style(theme::ink_bold()),
         )
         .style(Style::default().fg(theme::muted()))
@@ -449,11 +449,11 @@ fn truncate(s: &str, max: usize) -> String {
 
 fn empty_kind_msg(kind: Kind, all_sources: bool) -> &'static str {
     match (kind, all_sources) {
-        (Kind::Skills, false) => "no skills in pantry",
+        (Kind::Skills, false) => "no skills in slop-kitchen",
         (Kind::Skills, true) => "no skills found",
-        (Kind::Rules, false) => "no rules in pantry",
+        (Kind::Rules, false) => "no rules in slop-kitchen",
         (Kind::Rules, true) => "no rules found",
-        (Kind::Extensions, false) => "no extensions in pantry",
+        (Kind::Extensions, false) => "no extensions in slop-kitchen",
         (Kind::Extensions, true) => "no extensions found",
     }
 }
