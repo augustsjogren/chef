@@ -8,7 +8,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Clear, List, ListItem, ListState, Paragraph};
+use ratatui::widgets::{Block, BorderType, Clear, List, ListItem, ListState, Paragraph, Tabs};
 use ratatui::{DefaultTerminal, Frame};
 
 use kitchen::item::{self, PantryEntry};
@@ -18,7 +18,7 @@ use crate::theme;
 
 const PREVIEW_CAP: usize = 12_000;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Kind {
     Skills,
     Rules,
@@ -27,6 +27,8 @@ enum Kind {
 }
 
 impl Kind {
+    const ALL: [Kind; 4] = [Self::Skills, Self::Rules, Self::Extensions, Self::Recipes];
+
     fn id(self) -> &'static str {
         match self {
             Self::Skills => "skills",
@@ -36,22 +38,16 @@ impl Kind {
         }
     }
 
+    fn index(self) -> usize {
+        Self::ALL.iter().position(|&k| k == self).unwrap()
+    }
+
     fn next(self) -> Self {
-        match self {
-            Self::Skills => Self::Rules,
-            Self::Rules => Self::Extensions,
-            Self::Extensions => Self::Recipes,
-            Self::Recipes => Self::Skills,
-        }
+        Self::ALL[(self.index() + 1) % Self::ALL.len()]
     }
 
     fn prev(self) -> Self {
-        match self {
-            Self::Skills => Self::Recipes,
-            Self::Rules => Self::Skills,
-            Self::Extensions => Self::Rules,
-            Self::Recipes => Self::Extensions,
-        }
+        Self::ALL[(self.index() + Self::ALL.len() - 1) % Self::ALL.len()]
     }
 }
 
@@ -184,10 +180,16 @@ fn draw(frame: &mut Frame, app: &mut App) {
     let inner = Layout::vertical([Constraint::Percentage(100)])
         .margin(2)
         .split(frame.area())[0];
-    let chunks = Layout::vertical([Constraint::Min(5), Constraint::Length(1)]).split(inner);
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(5),
+        Constraint::Length(1),
+    ])
+    .split(inner);
     let cols = Layout::horizontal([Constraint::Percentage(38), Constraint::Percentage(62)])
-        .split(chunks[0]);
+        .split(chunks[1]);
 
+    draw_tabs(frame, app, chunks[0]);
     draw_kinds(frame, app, cols[0]);
     draw_preview(frame, app, cols[1]);
 
@@ -196,13 +198,36 @@ fn draw(frame: &mut Frame, app: &mut App) {
             "[TAB]:Kind  [J/K]:Move  [PGUP/DN]:Preview  [Q]:Quit  ·  kitchen serve to link",
             Style::default().fg(theme::muted()),
         ))),
-        chunks[1],
+        chunks[2],
     );
+}
+
+fn draw_tabs(frame: &mut Frame, app: &App, area: Rect) {
+    frame.render_widget(Clear, area);
+    let titles: Vec<Line> = Kind::ALL.iter().map(|k| Line::from(k.id())).collect();
+    let tabs = Tabs::new(titles)
+        .block(
+            Block::bordered()
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(theme::heat()))
+                .title(" PANTRY ")
+                .title_style(theme::ink_bold()),
+        )
+        .style(Style::default().fg(theme::muted()))
+        .highlight_style(
+            Style::default()
+                .fg(theme::heat())
+                .add_modifier(Modifier::BOLD | Modifier::REVERSED),
+        )
+        .select(app.kind.index())
+        .divider("│")
+        .padding(" ", " ");
+    frame.render_widget(tabs, area);
 }
 
 fn draw_kinds(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_widget(Clear, area);
-    let title = format!(" PANTRY · {} ", app.kind.id());
+    let title = format!(" {} ", app.kind.id().to_uppercase());
     let names = app.names();
     let items: Vec<ListItem> = if names.is_empty() {
         vec![ListItem::new(Span::styled(
@@ -218,7 +243,7 @@ fn draw_kinds(frame: &mut Frame, app: &mut App, area: Rect) {
         .block(
             Block::bordered()
                 .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(theme::heat()))
+                .border_style(Style::default().fg(theme::muted()))
                 .title(title)
                 .title_style(theme::ink_bold()),
         )
@@ -365,5 +390,17 @@ mod tests {
     #[test]
     fn expand_tabs_to_columns() {
         assert_eq!(expand_tabs("a\tb", 4), "a   b");
+    }
+
+    #[test]
+    fn kind_cycles_all_four() {
+        let mut k = Kind::Skills;
+        for expected in Kind::ALL {
+            assert_eq!(k, expected);
+            k = k.next();
+        }
+        assert_eq!(k, Kind::Skills);
+        assert_eq!(Kind::Skills.prev(), Kind::Recipes);
+        assert_eq!(Kind::Recipes.next(), Kind::Skills);
     }
 }
