@@ -1,4 +1,5 @@
 mod chat_ui;
+mod markdown;
 mod pantry_ui;
 mod serve_ui;
 mod stove_ui;

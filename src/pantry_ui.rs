@@ -53,6 +53,7 @@ struct App {
     entries: Vec<PantryEntry>,
     list: ListState,
     preview: String,
+    preview_md: bool,
     preview_scroll: u16,
 }
 
@@ -63,6 +64,7 @@ impl App {
             entries: Vec::new(),
             list: ListState::default(),
             preview: String::new(),
+            preview_md: false,
             preview_scroll: 0,
         };
         app.reload()?;
@@ -102,10 +104,26 @@ impl App {
     }
 
     fn refresh_preview(&mut self) {
-        self.preview = match self.list.selected().and_then(|i| self.entries.get(i)) {
-            Some(e) => read_preview(&e.preview),
-            None => empty_kind_msg(self.kind).into(),
-        };
+        match self.list.selected().and_then(|i| self.entries.get(i)) {
+            Some(e) => match read_preview(&e.preview) {
+                Ok(raw) if raw.trim().is_empty() => {
+                    self.preview = "(empty)".into();
+                    self.preview_md = false;
+                }
+                Ok(raw) => {
+                    self.preview = raw;
+                    self.preview_md = e.preview.extension().and_then(|x| x.to_str()) == Some("md");
+                }
+                Err(msg) => {
+                    self.preview = msg;
+                    self.preview_md = false;
+                }
+            },
+            None => {
+                self.preview = empty_kind_msg(self.kind).into();
+                self.preview_md = false;
+            }
+        }
     }
 
     fn handle(&mut self, key: KeyEvent) -> Result<bool> {
@@ -253,15 +271,17 @@ fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
     if width == 0 || height == 0 {
         return;
     }
-    let rows = visual_rows(&app.preview, width);
+    let rows = if app.preview_md {
+        crate::markdown::render(&app.preview, width)
+    } else {
+        visual_rows(&app.preview, width)
+            .into_iter()
+            .map(Line::from)
+            .collect()
+    };
     let max_scroll = rows.len().saturating_sub(height);
     let start = (app.preview_scroll as usize).min(max_scroll);
-    let mut visible: Vec<Line> = rows
-        .into_iter()
-        .skip(start)
-        .take(height)
-        .map(Line::from)
-        .collect();
+    let mut visible: Vec<Line> = rows.into_iter().skip(start).take(height).collect();
     while visible.len() < height {
         visible.push(Line::from(" ".repeat(width)));
     }
@@ -311,19 +331,17 @@ fn expand_tabs(text: &str, tab: usize) -> String {
     out
 }
 
-fn read_preview(path: &std::path::Path) -> String {
+fn read_preview(path: &std::path::Path) -> Result<String, String> {
     match fs::read_to_string(path) {
         Ok(raw) => {
-            if raw.trim().is_empty() {
-                "(empty)".into()
-            } else if raw.chars().count() > PREVIEW_CAP {
+            if raw.chars().count() > PREVIEW_CAP {
                 let s: String = raw.chars().take(PREVIEW_CAP).collect();
-                format!("{s}…")
+                Ok(format!("{s}…"))
             } else {
-                raw
+                Ok(raw)
             }
         }
-        Err(_) => format!("cannot read {}", path.display()),
+        Err(_) => Err(format!("cannot read {}", path.display())),
     }
 }
 
