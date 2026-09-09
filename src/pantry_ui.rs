@@ -177,9 +177,13 @@ fn run_app(terminal: &mut DefaultTerminal) -> Result<()> {
 }
 
 fn draw(frame: &mut Frame, app: &mut App) {
-    let inner = Layout::vertical([Constraint::Percentage(100)])
-        .margin(2)
-        .split(frame.area())[0];
+    let area = frame.area();
+    let inner = Rect {
+        x: area.x.saturating_add(2),
+        y: area.y,
+        width: area.width.saturating_sub(4),
+        height: area.height.saturating_sub(2),
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(5),
