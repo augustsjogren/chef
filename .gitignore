@@ -10,3 +10,4 @@ __pycache__/
 .kitchen/state.json
 .kitchen/stove.json
 .kitchen/logs/
+.kitchen/chats/

@@ -88,7 +88,7 @@ main() {
   verify
   say ""
   say "done. open a new terminal, then:"
-  say "  kitchen cook"
+  say "  kitchen"
   say ""
   say "reinstall after pulling: kitchen prep"
 }

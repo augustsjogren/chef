@@ -14,7 +14,7 @@ Canonical definitions live by **kind**. Harness wiring is adapters only.
 | Rules | `rules/<name>.md` | One concern per file; keep short |
 | Extensions | `extensions/` | Pi `*.ts` hooks; symlink via `kitchen serve` |
 | Harness notes | `harnesses/<name>/` | Install paths only — no duplicate skill text |
-| Runtime state | `.kitchen/` | Local agent state + logs (gitignored) |
+| Runtime state | `.kitchen/` | Local stove + chat logs (gitignored) |
 
 When adding a skill or rule: write it once in the kind folder, then add only adapter notes under `harnesses/`.
 
