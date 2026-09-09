@@ -22,7 +22,8 @@ Prefer `edit` over full-file `write` when changing existing files.
 
 ```bash
 ./install          # once: rust + kitchen on PATH
-kitchen cook       # TUI
+kitchen cook       # roster TUI
+kitchen chat                       # plain local-model chat (stove)
 kitchen cook <agent> <task>        # assign ticket, COOKING
 kitchen cook <agent> <task> -a     # LET HIM COOK — dispatches to MLX (raw HTTP)
 kitchen dismiss <agent>            # remove from roster

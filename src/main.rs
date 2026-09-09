@@ -1,3 +1,4 @@
+mod chat_ui;
 mod theme;
 mod tty;
 mod tui;
@@ -21,7 +22,7 @@ use kitchen::stove::{cool, print_status, simmer, Burner};
     name = "kitchen",
     version,
     about = "Kitchen CLI — pantry, recipes, and the line.",
-    after_help = "Examples:\n  kitchen cook\n  kitchen cook frontend Fix accessibility\n  kitchen prep\n  kitchen serve\n  kitchen stove simmer mlx"
+    after_help = "Examples:\n  kitchen chat\n  kitchen cook\n  kitchen cook frontend Fix accessibility\n  kitchen prep\n  kitchen serve\n  kitchen stove simmer mlx"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -32,6 +33,8 @@ struct Cli {
 enum Cmd {
     /// Mise en place: build this repo and install `kitchen` on PATH
     Prep,
+    /// Plain chat with a local model on the stove
+    Chat,
     /// Open the TUI, or put an agent on a ticket
     Cook {
         /// Agent name (spawned if new)
@@ -90,6 +93,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
         None => run_tui("kitchen status"),
+        Some(Cmd::Chat) => run_tui_named("kitchen chat", chat_ui::run),
         Some(Cmd::Cook {
             agent,
             task,
@@ -134,10 +138,14 @@ fn main() -> Result<()> {
 }
 
 fn run_tui(hint: &str) -> Result<()> {
+    run_tui_named(hint, ui::run)
+}
+
+fn run_tui_named(hint: &str, run: fn() -> Result<()>) -> Result<()> {
     if !tty::stdin_is_tty() {
         bail!("need a tty; try: {hint}");
     }
-    ui::run()
+    run()
 }
 
 fn prep() -> Result<()> {

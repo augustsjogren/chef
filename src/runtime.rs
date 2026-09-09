@@ -11,7 +11,7 @@ use std::time::Duration;
 use anyhow::{bail, Context, Result};
 use serde_json::Value;
 
-use crate::config::{expand_path, repo_root};
+use crate::config::repo_root;
 use crate::kitchen::agent_log;
 use crate::stove::{self, Burner};
 
@@ -81,11 +81,7 @@ pub fn dispatch_agent(agent_id: &str, prompt: &str) -> Result<()> {
     }
 }
 
-fn dispatch_agent_inner(
-    agent_id: &str,
-    prompt: &str,
-    cancel: &AtomicBool,
-) -> Result<()> {
+fn dispatch_agent_inner(agent_id: &str, prompt: &str, cancel: &AtomicBool) -> Result<()> {
     let prompt = prompt.trim();
     anyhow::ensure!(!prompt.is_empty(), "empty ticket");
     check_cancel(cancel)?;
@@ -96,7 +92,7 @@ fn dispatch_agent_inner(
     check_cancel(cancel)?;
 
     let port = stove::burner_port(Burner::Mlx);
-    let model = default_mlx_model();
+    let model = stove::default_mlx_model();
 
     let reply = raw_chat_completion(port, &model, prompt, cancel)?;
     check_cancel(cancel)?;
@@ -118,16 +114,6 @@ fn check_cancel(cancel: &AtomicBool) -> Result<()> {
         bail!("dispatch cancelled");
     }
     Ok(())
-}
-
-fn default_mlx_model() -> String {
-    std::env::var("MODEL")
-        .map(|p| expand_path(&p).to_string_lossy().into_owned())
-        .unwrap_or_else(|_| {
-            expand_path("~/.lmstudio/models/lmstudio-community/Qwen3.5-9B-MLX-4bit")
-                .to_string_lossy()
-                .into_owned()
-        })
 }
 
 fn raw_chat_completion(
@@ -176,9 +162,7 @@ fn http_post_json(port: u16, path: &str, body: &str, cancel: &AtomicBool) -> Res
         match stream.read(&mut buf) {
             Ok(0) => break,
             Ok(n) => resp.extend_from_slice(&buf[..n]),
-            Err(e)
-                if e.kind() == ErrorKind::WouldBlock || e.kind() == ErrorKind::TimedOut =>
-            {
+            Err(e) if e.kind() == ErrorKind::WouldBlock || e.kind() == ErrorKind::TimedOut => {
                 continue;
             }
             Err(e) => return Err(e).context("read chat response"),

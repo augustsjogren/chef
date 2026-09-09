@@ -1,5 +1,6 @@
 //! Kitchen: agent roster state and harness symlink tooling.
 
+pub mod chat;
 pub mod config;
 pub mod item;
 pub mod kitchen;

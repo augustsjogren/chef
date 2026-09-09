@@ -245,6 +245,112 @@ pub fn cool(burner: Burner) -> Result<String> {
     Ok(format!("cooled {} (was pid {pid})", burner.id()))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogEntry {
+    pub burner: Burner,
+    pub model: String,
+    pub heat: Heat,
+}
+
+/// Models a chat client can pick. MLX always has at least the default path.
+/// Ollama appears only while that burner is simmering (never the face when cold).
+pub fn model_catalog() -> Result<Vec<CatalogEntry>> {
+    let mut out = Vec::new();
+    for burner in [Burner::Mlx, Burner::Ollama] {
+        let st = status_one(burner)?;
+        for model in served_models(burner, &st)? {
+            out.push(CatalogEntry {
+                burner,
+                model,
+                heat: st.heat(),
+            });
+        }
+    }
+    if !out.iter().any(|e| e.burner == Burner::Mlx) {
+        out.insert(
+            0,
+            CatalogEntry {
+                burner: Burner::Mlx,
+                model: default_mlx_model(),
+                heat: status_one(Burner::Mlx)?.heat(),
+            },
+        );
+    }
+    Ok(out)
+}
+
+pub fn served_models(burner: Burner, st: &BurnerStatus) -> Result<Vec<String>> {
+    if st.heat() != Heat::Simmering {
+        return Ok(match burner {
+            Burner::Mlx => vec![default_mlx_model()],
+            Burner::Ollama => Vec::new(),
+        });
+    }
+    match fetch_v1_models(st.port) {
+        Ok(list) if !list.is_empty() => Ok(list),
+        Ok(_) | Err(_) if burner == Burner::Mlx => Ok(vec![default_mlx_model()]),
+        _ => Ok(Vec::new()),
+    }
+}
+
+pub fn default_mlx_model() -> String {
+    std::env::var("MODEL")
+        .map(|p| expand_path(&p).to_string_lossy().into_owned())
+        .unwrap_or_else(|_| {
+            expand_path("~/.lmstudio/models/lmstudio-community/Qwen3.5-9B-MLX-4bit")
+                .to_string_lossy()
+                .into_owned()
+        })
+}
+
+pub fn parse_v1_models(body: &str) -> Vec<String> {
+    let json = extract_json_object(body).unwrap_or(body);
+    let v: serde_json::Value = match serde_json::from_str(json) {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+    v.get("data")
+        .and_then(|d| d.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(str::to_string))
+                .filter(|id| !id.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn extract_json_object(s: &str) -> Option<&str> {
+    let start = s.find('{')?;
+    let end = s.rfind('}')?;
+    if end >= start {
+        Some(&s[start..=end])
+    } else {
+        None
+    }
+}
+
+fn fetch_v1_models(port: u16) -> Result<Vec<String>> {
+    let raw = http_get_body(port, "/v1/models")?;
+    Ok(parse_v1_models(&raw))
+}
+
+fn http_get_body(port: u16, path: &str) -> Result<String> {
+    use std::io::{Read, Write};
+
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let mut stream =
+        TcpStream::connect_timeout(&addr, Duration::from_secs(2)).context("connect models")?;
+    stream
+        .set_read_timeout(Some(Duration::from_secs(3)))
+        .context("read timeout")?;
+    let req = format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
+    stream.write_all(req.as_bytes()).context("write models")?;
+    let mut buf = Vec::new();
+    stream.read_to_end(&mut buf).context("read models")?;
+    String::from_utf8(buf).context("models not utf-8")
+}
+
 pub fn print_status() -> Result<()> {
     for st in status_all()? {
         let heat = st.heat().label();
@@ -305,9 +411,7 @@ fn http_ready(burner: Burner, port: u16) -> bool {
         Err(_) => return false,
     };
     let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
-    let req = format!(
-        "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
-    );
+    let req = format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
     if stream.write_all(req.as_bytes()).is_err() {
         return false;
     }
@@ -602,5 +706,17 @@ mod tests {
         assert!(http_status_ok(b"HTTP/1.1 404"));
         assert!(!http_status_ok(b"HTTP/1.1 "));
         assert!(!http_status_ok(b"garbage"));
+    }
+
+    #[test]
+    fn parse_openai_model_list() {
+        let body = r#"{"object":"list","data":[{"id":"qwen"},{"id":"llama"}]}"#;
+        assert_eq!(parse_v1_models(body), vec!["qwen", "llama"]);
+    }
+
+    #[test]
+    fn parse_models_skips_http_prefix() {
+        let body = "HTTP/1.1 200 OK\r\n\r\n{\"data\":[{\"id\":\"only\"}]}";
+        assert_eq!(parse_v1_models(body), vec!["only"]);
     }
 }

@@ -25,7 +25,8 @@ CI runs `cargo fmt --check`, `cargo clippy`, and `cargo test` on push/PR.
 Installs rustup if needed, adds `~/.cargo/env` to your shell profile, builds `kitchen`, and puts it on `~/.cargo/bin`. Open a **new terminal** (or `source ~/.zshrc`), then:
 
 ```bash
-kitchen cook                          # TUI
+kitchen cook                          # roster TUI
+kitchen chat                          # plain local-model chat
 kitchen cook frontend Fix a11y        # spawn/assign + COOKING
 kitchen cook frontend Fix a11y -a     # LET HIM COOK — dispatch to MLX
 kitchen status
@@ -43,7 +44,8 @@ Set `KITCHEN_ROOT` to point at this repo if you run `kitchen` from elsewhere.
 
 | Command | What |
 |---------|------|
-| `kitchen cook` | Open the TUI |
+| `kitchen cook` | Open the roster TUI |
+| `kitchen chat` | Plain chat with a local model (warms the stove) |
 | `kitchen cook <agent> <task>` | Spawn or assign a **ticket** and start COOKING |
 | `kitchen cook <agent> <task> -a` | LET HIM COOK — dispatch ticket to MLX (raw HTTP) |
 | `kitchen status` | Print roster + pantry counts |
@@ -74,6 +76,8 @@ A **ticket** is the task string on an agent — free text like `fix login page`.
 Keys: `[enter]` inspect · `[s]` spawn · `[t]` ticket · `[m]` let him cook · `[d]` stop (cancels in-flight dispatch) · `[D]` / Delete dismiss · `[c]` plate · `[x]` burnt · `[r]` recipes · `[p]` pantry · `[o]` stove · `[q]` quit. `j`/`k` move. Pantry: `[a]` attach · `[-]` detach. Stove: `[enter]`/`[s]` simmer · `[c]` cool · `[r]` refresh.
 
 **Autonomous mode** (`-a` or `[m]`): kitchen warms MLX on the stove if needed, POSTs the ticket to `/v1/chat/completions`, and logs the reply under `.kitchen/logs/<agent-id>.log`. Inspect the agent to read it. Stop with `[d]` while dispatching.
+
+**Chat** (`kitchen chat`): naked thread with a model from the stove catalog. First send warms MLX. Transcripts in `.kitchen/chats/`. Keys: enter send · esc stop · `^o` model · `^n` new · `^q` quit. No skills, no tools.
 
 ## Pantry (bundled)
 
