@@ -25,18 +25,17 @@ CI runs `cargo fmt --check`, `cargo clippy`, and `cargo test` on push/PR.
 Installs rustup if needed, adds `~/.cargo/env` to your shell profile, builds `kitchen`, and puts it on `~/.cargo/bin`. Open a **new terminal** (or `source ~/.zshrc`), then:
 
 ```bash
-kitchen cook                          # roster TUI
+kitchen                               # pantry TUI
 kitchen chat                          # plain local-model chat
+kitchen stove                         # burner TUI
+kitchen serve                         # symlink pantry into Cursor / Claude / Pi
+kitchen cook                          # roster TUI (frozen)
 kitchen cook frontend Fix a11y        # spawn/assign + COOKING
-kitchen cook frontend Fix a11y -a     # LET HIM COOK — dispatch to MLX
-kitchen status
-kitchen dismiss frontend            # remove from roster
-kitchen serve                       # symlink pantry into Cursor / Claude / Pi
 ```
 
 After pulling code: `kitchen prep` (rebuild + reinstall). Agent state lives in `.kitchen/` (local).
 
-**Hacking this repo:** skip `prep` between edits — run `./dev cook`, `./dev stove`, or `kitchen dev cook` (`cargo run` rebuilds only when needed). Auto-rebuild on save: `kitchen dev -w cook` (install [cargo-watch](https://github.com/watchexec/cargo-watch) once).
+**Hacking this repo:** skip `prep` between edits — run `./dev`, `./dev stove`, `./dev chat`, or `kitchen dev cook` (`cargo run` rebuilds only when needed). Auto-rebuild on save: `kitchen dev -w` (install [cargo-watch](https://github.com/watchexec/cargo-watch) once).
 
 Set `KITCHEN_ROOT` to point at this repo if you run `kitchen` from elsewhere.
 
@@ -44,26 +43,35 @@ Set `KITCHEN_ROOT` to point at this repo if you run `kitchen` from elsewhere.
 
 | Command | What |
 |---------|------|
-| `kitchen cook` | Open the roster TUI |
+| `kitchen` / `kitchen pantry` | Browse skills, rules, extensions, recipes |
+| `kitchen stove` | Burner TUI (status if not a tty) |
+| `kitchen stove simmer mlx` | Start MLX server (`:8080`) |
+| `kitchen stove simmer ollama` | Start Ollama (`:11434`) |
+| `kitchen stove cool mlx` | Stop MLX server |
+| `kitchen stove cool ollama` | Stop Ollama |
+| `kitchen serve` | Harness symlink TUI |
+| `kitchen serve link <harness>` | Link all pantry items to one harness |
 | `kitchen chat` | Plain chat with a local model (warms the stove) |
+| `kitchen cook` | Roster TUI (frozen) |
 | `kitchen cook <agent> <task>` | Spawn or assign a **ticket** and start COOKING |
 | `kitchen cook <agent> <task> -a` | LET HIM COOK — dispatch ticket to MLX (raw HTTP) |
 | `kitchen status` | Print roster + pantry counts |
 | `kitchen dismiss <agent>` | Remove agent from roster (logs kept) |
 | `kitchen prep` | `cargo build` + `cargo install --path .` |
 | `kitchen dev [args…]` | Run from source (`cargo run`) — no install step |
-| `kitchen dev -w cook` | Auto-rebuild on save (needs `cargo-watch`) |
-| `kitchen serve` | Harness symlink TUI |
-| `kitchen serve link <harness>` | Link all pantry items to one harness |
-| `kitchen stove` | MLX + Ollama burner status |
-| `kitchen stove simmer mlx` | Start MLX server (`:8080`) |
-| `kitchen stove simmer ollama` | Start Ollama (`:11434`) |
-| `kitchen stove cool mlx` | Stop MLX server |
-| `kitchen stove cool ollama` | Stop Ollama |
+| `kitchen dev -w` | Auto-rebuild on save (needs `cargo-watch`) |
 
 ## TUI
 
-A **ticket** is the task string on an agent — free text like `fix login page`. Required before `[m]` let him cook.
+**Pantry** (`kitchen`): tab through skills, rules, extensions, recipes. Read the file in the preview pane. Link into Cursor / Claude / Pi with `kitchen serve`.
+
+**Stove** (`kitchen stove`): simmer / cool MLX and Ollama. Model catalog for the selected burner. Chat uses this catalog.
+
+**Serve** (`kitchen serve`): pick a harness, link or unlink pantry items.
+
+**Chat** (`kitchen chat`): naked thread with a model from the stove catalog. First send warms MLX. Transcripts in `.kitchen/chats/`. Keys: enter send · esc stop · `^o` model · `^n` new · `^q` quit. No skills, no tools.
+
+**Cook** (`kitchen cook`, frozen): roster of fake cooks. A **ticket** is the task string — free text like `fix login page`. Required before `[m]` let him cook.
 
 | Status | Meaning |
 |--------|---------|
@@ -77,8 +85,6 @@ Keys: `[enter]` inspect · `[s]` spawn · `[t]` ticket · `[m]` let him cook · 
 
 **Autonomous mode** (`-a` or `[m]`): kitchen warms MLX on the stove if needed, POSTs the ticket to `/v1/chat/completions`, and logs the reply under `.kitchen/logs/<agent-id>.log`. Inspect the agent to read it. Stop with `[d]` while dispatching.
 
-**Chat** (`kitchen chat`): naked thread with a model from the stove catalog. First send warms MLX. Transcripts in `.kitchen/chats/`. Keys: enter send · esc stop · `^o` model · `^n` new · `^q` quit. No skills, no tools.
-
 ## Pantry (bundled)
 
 | Kind | Name | Purpose |
@@ -89,6 +95,6 @@ Keys: `[enter]` inspect · `[s]` spawn · `[t]` ticket · `[m]` let him cook · 
 | Rule | `kitchen-repo` | Repo conventions (always-on here) |
 | Extension | `cap-tool-output.ts` | Pi tool output caps — `kitchen serve link pi` |
 
-Recipe **Local Qwen 9B** (Recipes screen) bundles the Pi skill + edit rule.
+Recipe **Local Qwen 9B** (pantry → recipes) bundles the Pi skill + edit rule.
 
 Local Pi + Qwen stack notes: [`harnesses/pi/qwen-local.md`](harnesses/pi/qwen-local.md).

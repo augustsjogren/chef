@@ -76,9 +76,24 @@ pub fn items_for(harness: &Harness, project: Option<&Path>) -> Result<Vec<Item>>
 }
 
 pub fn list_names(kind: &str) -> Result<Vec<String>> {
+    Ok(list_kind(kind)?.into_iter().map(|e| e.name).collect())
+}
+
+#[derive(Debug, Clone)]
+pub struct PantryEntry {
+    pub name: String,
+    pub preview: PathBuf,
+}
+
+/// Skills preview `SKILL.md`; rules and extensions preview the source file.
+pub fn list_kind(kind: &str) -> Result<Vec<PantryEntry>> {
     Ok(iter_sources(kind)?
         .into_iter()
-        .map(|p| pantry_name(kind, &p))
+        .map(|p| {
+            let name = pantry_name(kind, &p);
+            let preview = preview_path(kind, &p);
+            PantryEntry { name, preview }
+        })
         .collect())
 }
 
@@ -123,6 +138,14 @@ fn iter_sources(kind: &str) -> Result<Vec<PathBuf>> {
     };
     paths.sort();
     Ok(paths)
+}
+
+fn preview_path(kind: &str, source: &Path) -> PathBuf {
+    if kind == "skills" {
+        source.join("SKILL.md")
+    } else {
+        source.to_path_buf()
+    }
 }
 
 fn dest_name(source: &Path, spec: &KindSpec) -> String {
@@ -190,6 +213,18 @@ mod tests {
         assert_eq!(
             pantry_name("skills", Path::new("skills/local-pi-qwen")),
             "local-pi-qwen"
+        );
+    }
+
+    #[test]
+    fn skill_preview_is_skill_md() {
+        assert_eq!(
+            preview_path("skills", Path::new("skills/local-pi-qwen")),
+            Path::new("skills/local-pi-qwen/SKILL.md")
+        );
+        assert_eq!(
+            preview_path("rules", Path::new("rules/foo.md")),
+            Path::new("rules/foo.md")
         );
     }
 

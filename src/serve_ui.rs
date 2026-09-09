@@ -1,12 +1,14 @@
+//! Harness symlink UI. Same pantry, different door — link, don't browse.
+
 use std::collections::HashSet;
 use std::path::PathBuf;
 
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::layout::{Constraint, Layout};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
+use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 
 use kitchen::config::{expand_path, Harness};
@@ -14,6 +16,9 @@ use kitchen::item::{classify, items_for, Item, LinkState};
 use kitchen::ops::{link_item, unlink_item};
 use kitchen::{load_harnesses, repo_root};
 
+use crate::theme;
+
+#[derive(Clone, Copy)]
 enum Screen {
     Harnesses,
     Items,
@@ -267,27 +272,39 @@ fn run_app(terminal: &mut DefaultTerminal, project: Option<PathBuf>) -> Result<(
 }
 
 fn draw(frame: &mut Frame, app: &mut App) {
+    let inner = Layout::vertical([Constraint::Percentage(100)])
+        .margin(2)
+        .split(frame.area())[0];
     let chunks = Layout::vertical([
-        Constraint::Length(3),
+        Constraint::Length(4),
         Constraint::Min(5),
-        Constraint::Length(3),
         Constraint::Length(1),
     ])
-    .split(frame.area());
+    .split(inner);
 
     let project = match &app.project {
         Some(p) => p.display().to_string(),
         None => "(none — press p)".into(),
     };
-    let header = Paragraph::new(vec![
-        Line::from(vec![
-            Span::styled("serve", Style::default().add_modifier(Modifier::BOLD)),
-            Span::raw(format!("  {}", repo_root().display())),
-        ]),
-        Line::from(format!("project: {project}")),
-    ])
-    .block(Block::new().borders(Borders::BOTTOM));
-    frame.render_widget(header, chunks[0]);
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(Span::styled(" SERVE ", theme::ink_bold())),
+            Line::from(Span::styled(
+                repo_root().display().to_string(),
+                Style::default().fg(theme::muted()),
+            )),
+            Line::from(Span::styled(
+                format!("project: {project}"),
+                Style::default().fg(theme::muted()),
+            )),
+        ])
+        .block(
+            Block::bordered()
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(theme::muted())),
+        ),
+        chunks[0],
+    );
 
     match app.screen {
         Screen::Harnesses => {
@@ -304,18 +321,24 @@ fn draw(frame: &mut Frame, app: &mut App) {
                 })
                 .collect();
             let list = List::new(items)
-                .block(Block::bordered().title("harnesses"))
-                .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+                .block(
+                    Block::bordered()
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(theme::muted()))
+                        .title(" HARNESSES ")
+                        .title_style(theme::ink_bold()),
+                )
+                .highlight_style(theme::highlight());
             frame.render_stateful_widget(list, chunks[1], &mut app.harness_list);
-            help(
-                frame,
-                chunks[2],
-                "enter open   j/k move   p project   q quit",
-            );
         }
         Screen::Items => {
             let items: Vec<ListItem> = if app.items.is_empty() {
-                vec![ListItem::new("(no installable items)")]
+                vec![ListItem::new(Span::styled(
+                    "(no installable items)",
+                    Style::default()
+                        .fg(theme::muted())
+                        .add_modifier(Modifier::ITALIC),
+                ))]
             } else {
                 app.items
                     .iter()
@@ -326,10 +349,10 @@ fn draw(frame: &mut Frame, app: &mut App) {
                             " "
                         };
                         let color = match row.state {
-                            LinkState::Linked => Color::Green,
-                            LinkState::Missing => Color::Yellow,
-                            LinkState::Blocked => Color::Red,
-                            LinkState::Foreign => Color::Magenta,
+                            LinkState::Linked => theme::sage(),
+                            LinkState::Missing => theme::heat(),
+                            LinkState::Blocked => theme::charred(),
+                            LinkState::Foreign => theme::muted(),
                         };
                         ListItem::new(Line::from(vec![
                             Span::raw(format!(
@@ -345,39 +368,61 @@ fn draw(frame: &mut Frame, app: &mut App) {
                     })
                     .collect()
             };
-            let title = app.current_harness().label.clone();
+            let title = format!(" {} ", app.current_harness().label);
             let list = List::new(items)
-                .block(Block::bordered().title(title))
-                .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+                .block(
+                    Block::bordered()
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(theme::muted()))
+                        .title(title)
+                        .title_style(theme::ink_bold()),
+                )
+                .highlight_style(theme::highlight());
             frame.render_stateful_widget(list, chunks[1], &mut app.item_list);
-            help(
-                frame,
-                chunks[2],
-                "space toggle   a all   l link   u unlink   esc back   q quit",
-            );
         }
         Screen::ProjectPrompt => {
-            let input =
-                Paragraph::new(app.prompt.as_str()).block(Block::bordered().title("project path"));
-            frame.render_widget(input, chunks[1]);
-            help(frame, chunks[2], "enter confirm   esc cancel");
+            frame.render_widget(
+                Paragraph::new(app.prompt.as_str())
+                    .style(theme::ink())
+                    .block(
+                        Block::bordered()
+                            .border_type(BorderType::Rounded)
+                            .border_style(Style::default().fg(theme::heat()))
+                            .title(" PROJECT ")
+                            .title_style(theme::ink_bold()),
+                    ),
+                chunks[1],
+            );
         }
     }
 
-    frame.render_widget(Paragraph::new(truncate(&app.flash, 120)), chunks[3]);
-}
-
-fn help(frame: &mut Frame, area: ratatui::layout::Rect, text: &str) {
-    frame.render_widget(
-        Paragraph::new(text).block(Block::bordered().title("keys")),
-        area,
-    );
-}
-
-fn truncate(s: &str, max: usize) -> &str {
-    if s.chars().count() <= max {
-        s
+    let help = if !app.flash.is_empty() {
+        Line::from(Span::styled(
+            truncate(&app.flash, 100),
+            Style::default().fg(theme::heat()),
+        ))
     } else {
-        &s[..s.char_indices().nth(max).map(|(i, _)| i).unwrap_or(s.len())]
+        Line::from(Span::styled(
+            help_text(&app.screen),
+            Style::default().fg(theme::muted()),
+        ))
+    };
+    frame.render_widget(Paragraph::new(help), chunks[2]);
+}
+
+fn help_text(screen: &Screen) -> &'static str {
+    match screen {
+        Screen::Harnesses => "[ENTER]:Open  [J/K]:Move  [P]:Project  [Q]:Quit",
+        Screen::Items => "[SPACE]:Toggle  [A]:All  [L]:Link  [U]:Unlink  [ESC]:Back  [Q]:Quit",
+        Screen::ProjectPrompt => "[ENTER]:Confirm  [ESC]:Cancel",
+    }
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let take = max.saturating_sub(1);
+        format!("{}…", s.chars().take(take).collect::<String>())
     }
 }

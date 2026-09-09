@@ -1,7 +1,9 @@
 mod chat_ui;
+mod pantry_ui;
+mod serve_ui;
+mod stove_ui;
 mod theme;
 mod tty;
-mod tui;
 mod ui;
 
 use std::path::PathBuf;
@@ -21,8 +23,8 @@ use kitchen::stove::{cool, print_status, simmer, Burner};
 #[command(
     name = "kitchen",
     version,
-    about = "Kitchen CLI — pantry, recipes, and the line.",
-    after_help = "Examples:\n  kitchen chat\n  kitchen cook\n  kitchen cook frontend Fix accessibility\n  kitchen prep\n  kitchen serve\n  kitchen stove simmer mlx"
+    about = "Kitchen CLI — pantry, stove, serve, and chat.",
+    after_help = "Examples:\n  kitchen\n  kitchen pantry\n  kitchen stove\n  kitchen serve\n  kitchen chat\n  kitchen cook\n  kitchen stove simmer mlx"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -33,6 +35,8 @@ struct Cli {
 enum Cmd {
     /// Mise en place: build this repo and install `kitchen` on PATH
     Prep,
+    /// Browse skills, rules, extensions, and recipes
+    Pantry,
     /// Plain chat with a local model on the stove
     Chat,
     /// Open the TUI, or put an agent on a ticket
@@ -67,7 +71,7 @@ enum Cmd {
         /// Rebuild and rerun when sources change (needs `cargo install cargo-watch`)
         #[arg(long, short)]
         watch: bool,
-        /// kitchen subcommand and args (default: cook TUI)
+        /// kitchen subcommand and args (default: pantry TUI)
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -92,14 +96,15 @@ enum StoveCmd {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
-        None => run_tui("kitchen status"),
+        None => run_tui_named("kitchen pantry", pantry_ui::run),
+        Some(Cmd::Pantry) => run_tui_named("kitchen pantry", pantry_ui::run),
         Some(Cmd::Chat) => run_tui_named("kitchen chat", chat_ui::run),
         Some(Cmd::Cook {
             agent,
             task,
             autonomous,
         }) => match agent {
-            None if task.is_empty() => run_tui("kitchen status"),
+            None if task.is_empty() => run_tui_named("kitchen cook", ui::run),
             None => bail!(
                 "need an agent name before the ticket — got: {}",
                 task.join(" ")
@@ -135,10 +140,6 @@ fn main() -> Result<()> {
         Some(Cmd::Stove { cmd }) => stove(cmd),
         Some(Cmd::Dev { watch, args }) => dev(watch, args),
     }
-}
-
-fn run_tui(hint: &str) -> Result<()> {
-    run_tui_named(hint, ui::run)
 }
 
 fn run_tui_named(hint: &str, run: fn() -> Result<()>) -> Result<()> {
@@ -226,7 +227,7 @@ fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>) -> Result<()> {
             if !tty::stdin_is_tty() {
                 bail!("need a tty; try: kitchen serve status");
             }
-            tui::run(project)
+            serve_ui::run(project)
         }
         Some(ServeCmd::Harnesses) => {
             for h in load_harnesses()? {
@@ -312,7 +313,13 @@ fn print_serve_status(h: &kitchen::Harness, project: Option<&std::path::Path>) -
 
 fn stove(cmd: Option<StoveCmd>) -> Result<()> {
     match cmd {
-        None => print_status(),
+        None => {
+            if tty::stdin_is_tty() {
+                stove_ui::run()
+            } else {
+                print_status()
+            }
+        }
         Some(StoveCmd::Simmer { burner }) => {
             println!("{}", simmer(Burner::parse(&burner)?)?);
             Ok(())
