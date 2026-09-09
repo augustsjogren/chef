@@ -1,10 +1,10 @@
-# This repo
+# Kitchen CLI
 
-**kitchen** — canonical definitions: `skills/`, `rules/`, `extensions/`.
+Rust TUI/CLI for browsing a personal skill pantry, linking into Cursor/Claude/Pi, and running local models.
 
-When adding a skill or rule, write it once in the matching kind folder. Then add only the harness adapter notes or install steps under `harnesses/<name>/`.
+**Pantry contents** (skills, rules, extensions) live in [dotfiles `kitchen/`](https://github.com/augustsjogren/dotfiles) at `~/kitchen` — see [PANTRY.md](PANTRY.md).
 
-Do not put live secrets, model weights, or `~/.pi/agent/settings.json` dumps here. Point at paths instead.
+This repo is the **tool** only: source, harness adapters (`harnesses/`), CI.
 
 Prefer `edit` over full-file `write` when changing existing files.
 
@@ -12,28 +12,22 @@ Prefer `edit` over full-file `write` when changing existing files.
 
 | Kind | Path | Rule |
 |------|------|------|
-| Skills | `skills/<name>/SKILL.md` | One skill per directory; copy `_template`, do not edit template in place |
-| Rules | `rules/<name>.md` | One concern per file; keep short |
-| Extensions | `extensions/` | Pi `*.ts` hooks; symlink via `kitchen serve` |
-| Harness notes | `harnesses/<name>/` | Install paths only — no duplicate skill text |
-| Runtime state | `.kitchen/` | Local stove + chat logs (gitignored) |
+| CLI source | `src/` | Rust |
+| Harness adapters | `harnesses/` | Install paths in `targets.json` — no duplicate skill text |
+| CI fixture | `testdata/pantry/` | Minimal skills for tests only |
+| Runtime state | `~/.kitchen/` | Stove + chat logs (not in git) |
 
 ## Kitchen CLI
 
 ```bash
 ./install          # once: rust + kitchen on PATH
-kitchen            # pantry TUI
-kitchen pantry     # same
-kitchen serve      # harness symlink TUI
-kitchen stove      # burner TUI
+kitchen            # pantry TUI (reads ~/kitchen)
+kitchen bootstrap  # install meta-skills into Cursor user dir
+kitchen serve      # symlink pantry into Cursor / Claude / Pi
+kitchen stove      # local model servers
 kitchen chat       # plain local-model chat
-kitchen stove simmer mlx           # start MLX Qwen server
-kitchen stove cool mlx             # stop MLX server
-kitchen prep                       # rebuild after pulling
-./dev                              # hack without prep (cargo run → pantry)
-kitchen dev -w                     # auto-rebuild on save
+kitchen prep       # rebuild after pulling this repo
+./dev              # hack without prep
 ```
 
-Dest paths for symlinks: `harnesses/targets.json`.
-
-Pantry is the default TUI (`kitchen`). Link into Cursor / Claude / Pi with `kitchen serve`. Local models: `kitchen stove` and `kitchen chat`.
+Set `KITCHEN_PANTRY` to override the default `~/kitchen` path.

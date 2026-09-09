@@ -14,7 +14,7 @@ use ratatui::{DefaultTerminal, Frame};
 use kitchen::config::{expand_path, Harness};
 use kitchen::item::{classify, items_for, Item, LinkState};
 use kitchen::ops::{link_item, unlink_item};
-use kitchen::{load_harnesses, repo_root};
+use kitchen::{load_harnesses, pantry_root, tool_root};
 
 use crate::theme;
 
@@ -290,7 +290,11 @@ fn draw(frame: &mut Frame, app: &mut App) {
         Paragraph::new(vec![
             Line::from(Span::styled(" SERVE ", theme::ink_bold())),
             Line::from(Span::styled(
-                repo_root().display().to_string(),
+                format!("pantry: {}", pantry_root().display()),
+                Style::default().fg(theme::muted()),
+            )),
+            Line::from(Span::styled(
+                format!("tool: {}", tool_root().display()),
                 Style::default().fg(theme::muted()),
             )),
             Line::from(Span::styled(

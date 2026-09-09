@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
 
-use crate::config::{expand_path, repo_root, Harness, KindSpec};
+use crate::config::{expand_path, pantry_root, Harness, KindSpec};
 
 const KIND_ORDER: [&str; 3] = ["skills", "rules", "extensions"];
 const EXT_SUFFIXES: [&str; 5] = [".ts", ".js", ".mjs", ".py", ".sh"];
@@ -84,6 +84,8 @@ pub fn list_names(kind: &str) -> Result<Vec<String>> {
 pub struct PantryEntry {
     pub name: String,
     pub preview: PathBuf,
+    /// Skill dir, rule file, or extension file.
+    pub root: PathBuf,
     /// Where this entry was found (`kitchen`, `cursor-user`, …).
     pub location: String,
 }
@@ -92,14 +94,19 @@ pub struct PantryEntry {
 pub fn list_kind(kind: &str) -> Result<Vec<PantryEntry>> {
     Ok(iter_sources(kind)?
         .into_iter()
-        .map(|p| entry_from_path(kind, "kitchen", &p))
+        .map(|p| entry_from_path(kind, "pantry", &p))
         .collect())
 }
 
-/// Aggregate pantry view: repo + known harness skill/rule dirs on this machine.
-pub fn list_pantry(kind: &str) -> Result<Vec<PantryEntry>> {
+/// Pantry view. `all_sources`: repo only, or repo + harness dirs on this machine.
+pub fn list_pantry(kind: &str, all_sources: bool) -> Result<Vec<PantryEntry>> {
+    let roots = if all_sources {
+        pantry_roots(kind)
+    } else {
+        vec![("pantry", pantry_root().join(kind))]
+    };
     let mut raw = Vec::new();
-    for (label, root) in pantry_roots(kind) {
+    for (label, root) in roots {
         for path in iter_at_root(kind, &root)? {
             raw.push((label.to_string(), path));
         }
@@ -132,6 +139,14 @@ fn pantry_canonical_key(path: &Path) -> String {
         .into_owned()
 }
 
+/// True when this entry lives in the personal pantry (may also be linked elsewhere).
+pub fn is_kitchen_entry(entry: &PantryEntry) -> bool {
+    entry
+        .location
+        .split(" · ")
+        .any(|loc| loc == "pantry")
+}
+
 fn merge_entry_location(existing: &mut PantryEntry, new_loc: &str) {
     if existing
         .location
@@ -147,13 +162,14 @@ fn entry_from_path(kind: &str, location: &str, path: &Path) -> PantryEntry {
     PantryEntry {
         name: pantry_name(kind, path),
         preview: preview_path(kind, path),
+        root: path.to_path_buf(),
         location: location.to_string(),
     }
 }
 
 fn pantry_roots(kind: &str) -> Vec<(&'static str, PathBuf)> {
-    let root = repo_root();
-    let mut out = vec![("kitchen", root.join(kind))];
+    let root = pantry_root();
+    let mut out = vec![("pantry", root.join(kind))];
     match kind {
         "skills" => {
             out.push(("cursor-user", expand_path("~/.cursor/skills")));
@@ -190,7 +206,7 @@ pub fn classify(item: &Item) -> LinkState {
 }
 
 fn iter_sources(kind: &str) -> Result<Vec<PathBuf>> {
-    iter_at_root(kind, &repo_root().join(kind))
+    iter_at_root(kind, &pantry_root().join(kind))
 }
 
 fn iter_at_root(kind: &str, root: &Path) -> Result<Vec<PathBuf>> {
@@ -319,6 +335,27 @@ mod tests {
     }
 
     #[test]
+    fn is_kitchen_entry_detects_repo_and_external() {
+        let repo = PantryEntry {
+            name: "foo".into(),
+            preview: PathBuf::from("skills/foo/SKILL.md"),
+            root: PathBuf::from("skills/foo"),
+            location: "pantry".into(),
+        };
+        let linked = PantryEntry {
+            location: "pantry · cursor-user".into(),
+            ..repo.clone()
+        };
+        let external = PantryEntry {
+            location: "cursor-user".into(),
+            ..repo.clone()
+        };
+        assert!(is_kitchen_entry(&repo));
+        assert!(is_kitchen_entry(&linked));
+        assert!(!is_kitchen_entry(&external));
+    }
+
+    #[test]
     fn dedupe_entries_merges_symlinked_skill() {
         let tmp = tempfile::tempdir().unwrap();
         let repo = tmp.path().join("repo/foo");
@@ -332,13 +369,13 @@ mod tests {
         return;
 
         let raw = vec![
-            ("kitchen".into(), repo.clone()),
+            ("pantry".into(), repo.clone()),
             ("cursor-user".into(), cursor.join("foo")),
         ];
         let out = dedupe_entries("skills", raw);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].name, "foo");
-        assert_eq!(out[0].location, "kitchen · cursor-user");
+        assert_eq!(out[0].location, "pantry · cursor-user");
     }
 
     #[test]

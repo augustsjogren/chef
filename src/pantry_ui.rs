@@ -11,6 +11,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, List, ListItem, ListState, Paragraph, Tabs};
 use ratatui::{DefaultTerminal, Frame};
 
+use kitchen::import::import_skill;
 use kitchen::item::{self, PantryEntry};
 
 use crate::theme;
@@ -50,38 +51,90 @@ impl Kind {
 
 struct App {
     kind: Kind,
+    all_sources: bool,
     entries: Vec<PantryEntry>,
     list: ListState,
     preview: String,
     preview_md: bool,
     preview_scroll: u16,
+    flash: String,
 }
 
 impl App {
     fn new() -> Result<Self> {
         let mut app = Self {
             kind: Kind::Skills,
+            all_sources: false,
             entries: Vec::new(),
             list: ListState::default(),
             preview: String::new(),
             preview_md: false,
             preview_scroll: 0,
+            flash: String::new(),
         };
         app.reload()?;
         Ok(app)
     }
 
     fn reload(&mut self) -> Result<()> {
-        self.entries = item::list_pantry(self.kind.id())?;
+        let keep = self
+            .list
+            .selected()
+            .and_then(|i| self.entries.get(i))
+            .map(|e| e.name.clone());
+        self.entries = item::list_pantry(self.kind.id(), self.all_sources)?;
         let n = self.entries.len();
         if n == 0 {
             self.list.select(None);
+        } else if let Some(name) = keep {
+            let i = self
+                .entries
+                .iter()
+                .position(|e| e.name == name)
+                .unwrap_or_else(|| self.list.selected().unwrap_or(0).min(n - 1));
+            self.list.select(Some(i));
         } else {
             let i = self.list.selected().unwrap_or(0).min(n - 1);
             self.list.select(Some(i));
         }
         self.preview_scroll = 0;
         self.refresh_preview();
+        Ok(())
+    }
+
+    fn toggle_sources(&mut self) -> Result<()> {
+        self.all_sources = !self.all_sources;
+        self.reload()
+    }
+
+    fn import_selected(&mut self) -> Result<()> {
+        if self.kind != Kind::Skills || !self.all_sources {
+            self.flash = "import: skills tab + all sources (A)".into();
+            return Ok(());
+        }
+        let Some(entry) = self
+            .list
+            .selected()
+            .and_then(|i| self.entries.get(i))
+            .cloned()
+        else {
+            return Ok(());
+        };
+        if item::is_kitchen_entry(&entry) {
+            self.flash = "already in pantry".into();
+            return Ok(());
+        }
+        match import_skill(&entry.name, &entry.root, &entry.location, false) {
+            Ok(result) => {
+                self.flash = if result.relinked.is_some() {
+                    format!("imported {} → repo, relinked", entry.name)
+                } else {
+                    format!("imported {} → repo", entry.name)
+                };
+                self.reload()?;
+            }
+            Err(e) => self.flash = e.to_string(),
+        }
         Ok(())
     }
 
@@ -121,7 +174,7 @@ impl App {
                 }
             },
             None => {
-                self.preview = empty_kind_msg(self.kind).into();
+                self.preview = empty_kind_msg(self.kind, self.all_sources).into();
                 self.preview_md = false;
             }
         }
@@ -130,6 +183,9 @@ impl App {
     fn handle(&mut self, key: KeyEvent) -> Result<bool> {
         if key.kind != KeyEventKind::Press {
             return Ok(false);
+        }
+        if !matches!(key.code, KeyCode::Char('i') | KeyCode::Char('I')) {
+            self.flash.clear();
         }
         match key.code {
             KeyCode::Char('q') => return Ok(true),
@@ -147,6 +203,8 @@ impl App {
             KeyCode::PageDown => {
                 self.preview_scroll = self.preview_scroll.saturating_add(8);
             }
+            KeyCode::Char('a') | KeyCode::Char('A') => self.toggle_sources()?,
+            KeyCode::Char('i') | KeyCode::Char('I') => self.import_selected()?,
             _ => {}
         }
         Ok(false)
@@ -197,13 +255,28 @@ fn draw(frame: &mut Frame, app: &mut App) {
     draw_kinds(frame, app, cols[0]);
     draw_preview(frame, app, cols[1]);
 
-    frame.render_widget(
-        Paragraph::new(Line::from(Span::styled(
-            "[TAB]:Kind  [J/K]:Move  [PGUP/DN]:Preview  [Q]:Quit  ·  kitchen bootstrap · kitchen serve",
+    let help = if !app.flash.is_empty() {
+        Line::from(Span::styled(
+            truncate(&app.flash, 100),
+            Style::default().fg(theme::heat()),
+        ))
+    } else if app.all_sources && app.kind == Kind::Skills {
+        Line::from(Span::styled(
+            "[TAB]:Kind  [J/K]:Move  [A]:Sources  [I]:Import  [PGUP/DN]:Preview  [Q]:Quit  ·  [k]pantry  [a]other",
             Style::default().fg(theme::muted()),
-        ))),
-        chunks[2],
-    );
+        ))
+    } else if app.all_sources {
+        Line::from(Span::styled(
+            "[TAB]:Kind  [J/K]:Move  [A]:Sources (all)  [PGUP/DN]:Preview  [Q]:Quit  ·  [k]pantry  [a]other",
+            Style::default().fg(theme::muted()),
+        ))
+    } else {
+        Line::from(Span::styled(
+            "[TAB]:Kind  [J/K]:Move  [A]:Sources (repo)  [PGUP/DN]:Preview  [Q]:Quit",
+            Style::default().fg(theme::muted()),
+        ))
+    };
+    frame.render_widget(Paragraph::new(help), chunks[2]);
 }
 
 fn draw_tabs(frame: &mut Frame, app: &App, area: Rect) {
@@ -229,12 +302,25 @@ fn draw_tabs(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(tabs, area);
 }
 
+fn list_item_for_entry(entry: &PantryEntry, all_sources: bool) -> ListItem<'static> {
+    if !all_sources {
+        return ListItem::new(entry.name.clone());
+    }
+    let mark = if item::is_kitchen_entry(entry) {
+        Span::styled("[k] ", Style::default().fg(theme::sage()))
+    } else {
+        Span::styled("[a] ", Style::default().fg(theme::muted()))
+    };
+    ListItem::new(Line::from(vec![mark, Span::raw(entry.name.clone())]))
+}
+
 fn draw_kinds(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_widget(Clear, area);
-    let title = format!(" {} ", app.kind.id().to_uppercase());
+    let scope = if app.all_sources { " · all" } else { "" };
+    let title = format!(" {}{} ", app.kind.id().to_uppercase(), scope);
     let items: Vec<ListItem> = if app.entries.is_empty() {
         vec![ListItem::new(Span::styled(
-            empty_kind_msg(app.kind),
+            empty_kind_msg(app.kind, app.all_sources),
             Style::default()
                 .fg(theme::muted())
                 .add_modifier(Modifier::ITALIC),
@@ -242,15 +328,7 @@ fn draw_kinds(frame: &mut Frame, app: &mut App, area: Rect) {
     } else {
         app.entries
             .iter()
-            .map(|e| {
-                ListItem::new(Line::from(vec![
-                    Span::raw(&e.name),
-                    Span::styled(
-                        format!("  @{}", e.location),
-                        Style::default().fg(theme::muted()),
-                    ),
-                ]))
-            })
+            .map(|e| list_item_for_entry(e, app.all_sources))
             .collect()
     };
     let list = List::new(items)
@@ -360,11 +438,23 @@ fn read_preview(path: &std::path::Path) -> Result<String, String> {
     }
 }
 
-fn empty_kind_msg(kind: Kind) -> &'static str {
-    match kind {
-        Kind::Skills => "no skills found (try kitchen bootstrap)",
-        Kind::Rules => "no rules found",
-        Kind::Extensions => "no extensions found",
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let take = max.saturating_sub(1);
+        format!("{}…", s.chars().take(take).collect::<String>())
+    }
+}
+
+fn empty_kind_msg(kind: Kind, all_sources: bool) -> &'static str {
+    match (kind, all_sources) {
+        (Kind::Skills, false) => "no skills in pantry",
+        (Kind::Skills, true) => "no skills found",
+        (Kind::Rules, false) => "no rules in pantry",
+        (Kind::Rules, true) => "no rules found",
+        (Kind::Extensions, false) => "no extensions in pantry",
+        (Kind::Extensions, true) => "no extensions found",
     }
 }
 

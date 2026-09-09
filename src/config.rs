@@ -4,31 +4,78 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
-/// Repo with skills/rules/kitchen data.
+/// Personal pantry: skills, rules, extensions.
 ///
-/// Order: `$KITCHEN_ROOT`, walk up from cwd, then the tree this binary was built from.
-pub fn repo_root() -> PathBuf {
+/// Order: `$KITCHEN_PANTRY`, `$KITCHEN_ROOT` (legacy), `~/kitchen`, walk up from cwd, tool repo fallback.
+pub fn pantry_root() -> PathBuf {
+    if let Ok(raw) = std::env::var("KITCHEN_PANTRY") {
+        return expand_path(&raw);
+    }
     if let Ok(raw) = std::env::var("KITCHEN_ROOT") {
         return expand_path(&raw);
     }
+    let home = expand_path("~/kitchen");
+    if is_pantry_root(&home) {
+        return home;
+    }
     if let Ok(cwd) = std::env::current_dir() {
-        if let Some(found) = find_repo(&cwd) {
+        if let Some(found) = find_pantry(&cwd) {
+            return found;
+        }
+    }
+    let tool = tool_root();
+    if is_pantry_root(&tool) {
+        return tool;
+    }
+    home
+}
+
+/// Kitchen CLI repo (harness adapters, built-in tool paths).
+pub fn tool_root() -> PathBuf {
+    if let Ok(cwd) = std::env::current_dir() {
+        if let Some(found) = find_tool_repo(&cwd) {
             return found;
         }
     }
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-fn find_repo(start: &Path) -> Option<PathBuf> {
+/// Local runtime state (stove, chat logs) — not synced via dotfiles.
+pub fn state_dir() -> PathBuf {
+    expand_path("~/.kitchen")
+}
+
+/// Deprecated alias for [`pantry_root`].
+pub fn repo_root() -> PathBuf {
+    pantry_root()
+}
+
+fn find_pantry(start: &Path) -> Option<PathBuf> {
     for dir in start.ancestors() {
-        if is_kitchen_repo(dir) {
+        if is_pantry_root(dir) {
+            return Some(dir.to_path_buf());
+        }
+        if dir.join("kitchen").is_dir() && is_pantry_root(&dir.join("kitchen")) {
+            return Some(dir.join("kitchen"));
+        }
+    }
+    None
+}
+
+fn find_tool_repo(start: &Path) -> Option<PathBuf> {
+    for dir in start.ancestors() {
+        if is_tool_repo(dir) {
             return Some(dir.to_path_buf());
         }
     }
     None
 }
 
-fn is_kitchen_repo(dir: &Path) -> bool {
+fn is_pantry_root(dir: &Path) -> bool {
+    dir.join("skills").is_dir()
+}
+
+fn is_tool_repo(dir: &Path) -> bool {
     dir.join("Cargo.toml").is_file()
         && dir.join("harnesses/targets.json").is_file()
         && dir.join("src/lib.rs").is_file()
@@ -75,7 +122,7 @@ impl Harness {
 }
 
 pub fn load_harnesses() -> Result<Vec<Harness>> {
-    let path = repo_root().join("harnesses/targets.json");
+    let path = tool_root().join("harnesses/targets.json");
     let raw = std::fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
     let file: TargetsFile = serde_json::from_str(&raw).context("parse targets.json")?;
     Ok(file.harnesses)
@@ -113,5 +160,13 @@ mod tests {
         let got = expand_path("~/.cursor/skills");
         assert!(got.ends_with(".cursor/skills"));
         assert!(!got.to_string_lossy().contains('~'));
+    }
+
+    #[test]
+    fn is_pantry_root_checks_skills_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(!is_pantry_root(tmp.path()));
+        std::fs::create_dir(tmp.path().join("skills")).unwrap();
+        assert!(is_pantry_root(tmp.path()));
     }
 }

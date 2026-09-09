@@ -11,7 +11,7 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::config::repo_root;
+use crate::config::state_dir;
 use crate::stove::{self, Burner};
 
 const DISPATCH_TIMEOUT: Duration = Duration::from_secs(300);
@@ -406,7 +406,7 @@ fn chats_dir() -> PathBuf {
     {
         return dir;
     }
-    repo_root().join(".kitchen").join("chats")
+    state_dir().join("chats")
 }
 
 #[cfg(test)]

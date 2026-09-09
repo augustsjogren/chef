@@ -897,11 +897,11 @@ mod tests {
 
     #[test]
     fn skill_md_hides_heading_hashes() {
-        let md = include_str!("../skills/kitchen-repo/SKILL.md");
+        let md = include_str!("../testdata/pantry/skills/kitchen-pantry/SKILL.md");
         let blob = trimmed(&render(md, 60)).join("\n");
-        assert!(blob.contains("Kitchen repo workflow"));
-        assert!(!blob.contains("# Kitchen repo workflow"));
-        assert!(blob.contains("name: kitchen-repo"));
+        assert!(blob.contains("Kitchen pantry (dotfiles)"));
+        assert!(!blob.contains("# Kitchen pantry"));
+        assert!(blob.contains("name: kitchen-pantry"));
     }
 
     #[test]
@@ -930,7 +930,7 @@ mod tests {
 
     #[test]
     fn skill_table_not_raw_pipes() {
-        let md = include_str!("../skills/local-pi-qwen/SKILL.md");
+        let md = include_str!("../testdata/pantry/skills/local-pi-qwen/SKILL.md");
         let t = trimmed(&render(md, 60));
         let blob = t.join("\n");
         assert!(blob.contains("Model"));

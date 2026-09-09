@@ -11,7 +11,7 @@ use std::time::Duration;
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::config::{expand_path, repo_root};
+use crate::config::{expand_path, state_dir};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -602,7 +602,7 @@ fn spawn_logged(cmd: &mut Command, burner: Burner) -> Result<u32> {
 }
 
 fn kitchen_dir() -> PathBuf {
-    repo_root().join(".kitchen")
+    state_dir()
 }
 
 fn state_path() -> PathBuf {

@@ -17,3 +17,5 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy -- -D warnings
       - run: cargo test
+        env:
+          KITCHEN_PANTRY: ${{ github.workspace }}/testdata/pantry

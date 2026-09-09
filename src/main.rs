@@ -13,7 +13,8 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 
 use kitchen::bootstrap;
-use kitchen::config::{expand_path, harness_by_id, load_harnesses, repo_root};
+use kitchen::import::{find_external_skill, import_skill};
+use kitchen::config::{expand_path, harness_by_id, load_harnesses, tool_root};
 use kitchen::item::{self, classify, items_for};
 use kitchen::ops::{link_item, unlink_item};
 use kitchen::stove::{cool, print_status, simmer, Burner};
@@ -40,6 +41,16 @@ enum Cmd {
     Chat,
     /// Print pantry counts
     Status,
+    /// Copy an external skill into the kitchen repo (relinks source by default)
+    Import {
+        name: String,
+        /// Pantry location label (`cursor-user`, `claude-user`, …)
+        #[arg(long)]
+        from: Option<String>,
+        /// Keep the original copy instead of replacing it with a symlink
+        #[arg(long)]
+        keep_source: bool,
+    },
     /// Install kitchen + kitchen-add-skill into a harness skill dir
     Bootstrap {
         /// Harness id from harnesses/targets.json
@@ -95,6 +106,11 @@ fn main() -> Result<()> {
         Some(Cmd::Chat) => run_tui_named("kitchen chat", chat_ui::run),
         Some(Cmd::Prep) => prep(),
         Some(Cmd::Status) => print_pantry(),
+        Some(Cmd::Import {
+            name,
+            from,
+            keep_source,
+        }) => cmd_import(&name, from.as_deref(), keep_source),
         Some(Cmd::Bootstrap { harness, project }) => {
             cmd_bootstrap(&harness, project.map(|p| expand_path(&p.to_string_lossy())))
         }
@@ -112,7 +128,7 @@ fn run_tui_named(hint: &str, run: fn() -> Result<()>) -> Result<()> {
 }
 
 fn prep() -> Result<()> {
-    let root = repo_root();
+    let root = tool_root();
     eprintln!("prep: {}", root.display());
     cargo(&root, &["build"])?;
     cargo(&root, &["install", "--path", ".", "--force"])?;
@@ -122,7 +138,7 @@ fn prep() -> Result<()> {
 }
 
 fn dev(watch: bool, args: Vec<String>) -> Result<()> {
-    let root = repo_root();
+    let root = tool_root();
     if watch {
         dev_watch(&root, &args)?;
     } else {
@@ -213,10 +229,22 @@ fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>) -> Result<()> {
 fn print_pantry() -> Result<()> {
     println!(
         "skills {}  rules {}  extensions {}",
-        item::list_pantry("skills")?.len(),
-        item::list_pantry("rules")?.len(),
-        item::list_pantry("extensions")?.len()
+        item::list_kind("skills")?.len(),
+        item::list_kind("rules")?.len(),
+        item::list_kind("extensions")?.len()
     );
+    Ok(())
+}
+
+fn cmd_import(name: &str, from: Option<&str>, keep_source: bool) -> Result<()> {
+    let (location, source) = find_external_skill(name, from)?;
+    let result = import_skill(name, &source, &location, keep_source)?;
+    println!("imported skills/{name} → {}", result.repo_path.display());
+    if let Some(loc) = result.relinked {
+        println!("relinked {loc} → repo (no duplicate copy)");
+    } else if keep_source {
+        println!("kept original at {}", source.display());
+    }
     Ok(())
 }
 
