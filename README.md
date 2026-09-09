@@ -2,12 +2,12 @@
 
 CLI for a personal agent skill pantry — browse, import, link into Cursor/Claude/Pi, and run local models.
 
-**Your skills live in dotfiles** (`~/kitchen`), not in this repo. See [PANTRY.md](PANTRY.md).
+**Your skills live in [pantry](https://github.com/augustsjogren/pantry)** (`~/kitchen`), not in this repo. See [PANTRY.md](PANTRY.md).
 
 | Repo | Role |
 |------|------|
 | [augustsjogren/kitchen](https://github.com/augustsjogren/kitchen) | This tool (Rust CLI, harness adapters) |
-| [augustsjogren/dotfiles](https://github.com/augustsjogren/dotfiles) `kitchen/` | Your skills, rules, extensions |
+| [augustsjogren/pantry](https://github.com/augustsjogren/pantry) | Your skills, rules, extensions → `~/kitchen` |
 
 CI runs `cargo fmt --check`, `cargo clippy`, and `cargo test` on push/PR.
 
@@ -17,7 +17,7 @@ CI runs `cargo fmt --check`, `cargo clippy`, and `cargo test` on push/PR.
 ./install
 ```
 
-Then ensure dotfiles checked out so `~/kitchen` exists, or set `KITCHEN_PANTRY`.
+Then clone [pantry](https://github.com/augustsjogren/pantry) to `~/kitchen`, or set `KITCHEN_PANTRY`.
 
 ```bash
 kitchen bootstrap    # meta-skills → Cursor

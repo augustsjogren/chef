@@ -2,7 +2,7 @@
 
 Rust TUI/CLI for browsing a personal skill pantry, linking into Cursor/Claude/Pi, and running local models.
 
-**Pantry contents** (skills, rules, extensions) live in [dotfiles `kitchen/`](https://github.com/augustsjogren/dotfiles) at `~/kitchen` — see [PANTRY.md](PANTRY.md).
+**Pantry contents** (skills, rules, extensions) live in [augustsjogren/pantry](https://github.com/augustsjogren/pantry) at `~/kitchen` — see [PANTRY.md](PANTRY.md).
 
 This repo is the **tool** only: source, harness adapters (`harnesses/`), CI.
 

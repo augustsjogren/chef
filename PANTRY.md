@@ -1,16 +1,15 @@
 # Pantry (personal skills)
 
-Skills, rules, and extensions live in your dotfiles — not in this repo.
+Skills, rules, and extensions live in a separate repo — not in the kitchen CLI repo.
 
 | What | Where |
 |------|--------|
-| Personal pantry | [`augustsjogren/dotfiles`](https://github.com/augustsjogren/dotfiles) → `kitchen/` (checked out as `~/kitchen`) |
+| Personal pantry | [`augustsjogren/pantry`](https://github.com/augustsjogren/pantry) → clone to `~/kitchen` |
 | Kitchen CLI | this repo |
 
-After dotfiles checkout:
-
 ```bash
-export KITCHEN_PANTRY="$HOME/kitchen"   # added to ~/.zshrc via dotfiles
+git clone git@github.com:augustsjogren/pantry.git ~/kitchen
+export KITCHEN_PANTRY="$HOME/kitchen"   # add to ~/.zshrc
 kitchen bootstrap
 kitchen serve
 ```

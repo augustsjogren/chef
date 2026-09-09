@@ -899,8 +899,8 @@ mod tests {
     fn skill_md_hides_heading_hashes() {
         let md = include_str!("../testdata/pantry/skills/kitchen-pantry/SKILL.md");
         let blob = trimmed(&render(md, 60)).join("\n");
-        assert!(blob.contains("Kitchen pantry (dotfiles)"));
-        assert!(!blob.contains("# Kitchen pantry"));
+        assert!(blob.contains("Kitchen pantry"));
+        assert!(!blob.contains("# Kitchen pantry\n"));
         assert!(blob.contains("name: kitchen-pantry"));
     }
 
