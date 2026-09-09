@@ -16,15 +16,13 @@ disable-model-invocation: true
 
 ## Add a skill
 
-1. Copy `skills/_template/` → `skills/<name>/`
-2. Edit `SKILL.md` frontmatter (`name`, `description`) and body
-3. `kitchen serve` → link into Cursor (`cursor-user` or `cursor-project`) or Claude
+Prefer capturing from solved work via **kitchen-add-skill** (install: `kitchen bootstrap`).
+
+For repo canonical skills: write `skills/<name>/SKILL.md`, then `kitchen serve` → link into Cursor or Claude.
 
 ## Add a rule
 
-1. Copy `rules/_template.md` → `rules/<concern>.md`
-2. One concern, under ~50 lines
-3. `kitchen serve` → Cursor rules get `.mdc` extension at dest
+One concern per file, under ~50 lines. Start from `rules/_template.md` if needed. `kitchen serve` → Cursor rules get `.mdc` at dest.
 
 ## Pi extension
 
@@ -33,8 +31,9 @@ Put `*.ts` in `extensions/`, then `kitchen serve` → **Pi** harness → link.
 ## Kitchen CLI
 
 ```bash
-kitchen            # pantry TUI
-kitchen serve      # symlink pantry
+kitchen            # pantry TUI (all skill dirs on machine)
+kitchen bootstrap  # install kitchen + kitchen-add-skill → Cursor user
+kitchen serve      # symlink repo pantry
 kitchen stove      # local model servers
 kitchen chat       # plain local-model chat
 kitchen prep       # rebuild after pulling

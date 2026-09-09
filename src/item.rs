@@ -1,10 +1,11 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
 
-use crate::config::{repo_root, Harness, KindSpec};
+use crate::config::{expand_path, repo_root, Harness, KindSpec};
 
 const KIND_ORDER: [&str; 3] = ["skills", "rules", "extensions"];
 const EXT_SUFFIXES: [&str; 5] = [".ts", ".js", ".mjs", ".py", ".sh"];
@@ -83,18 +84,97 @@ pub fn list_names(kind: &str) -> Result<Vec<String>> {
 pub struct PantryEntry {
     pub name: String,
     pub preview: PathBuf,
+    /// Where this entry was found (`kitchen`, `cursor-user`, …).
+    pub location: String,
 }
 
-/// Skills preview `SKILL.md`; rules and extensions preview the source file.
+/// Repo-only listing (used by `kitchen serve`).
 pub fn list_kind(kind: &str) -> Result<Vec<PantryEntry>> {
     Ok(iter_sources(kind)?
         .into_iter()
-        .map(|p| {
-            let name = pantry_name(kind, &p);
-            let preview = preview_path(kind, &p);
-            PantryEntry { name, preview }
-        })
+        .map(|p| entry_from_path(kind, "kitchen", &p))
         .collect())
+}
+
+/// Aggregate pantry view: repo + known harness skill/rule dirs on this machine.
+pub fn list_pantry(kind: &str) -> Result<Vec<PantryEntry>> {
+    let mut raw = Vec::new();
+    for (label, root) in pantry_roots(kind) {
+        for path in iter_at_root(kind, &root)? {
+            raw.push((label.to_string(), path));
+        }
+    }
+    Ok(dedupe_entries(kind, raw))
+}
+
+/// Collapse symlinked duplicates (e.g. repo skill + `cursor-user` link to same dir).
+fn dedupe_entries(kind: &str, raw: Vec<(String, PathBuf)>) -> Vec<PantryEntry> {
+    let mut by_key: BTreeMap<String, PantryEntry> = BTreeMap::new();
+    for (label, path) in raw {
+        let entry = entry_from_path(kind, &label, &path);
+        let key = pantry_canonical_key(&path);
+        match by_key.get_mut(&key) {
+            Some(existing) => merge_entry_location(existing, &entry.location),
+            None => {
+                by_key.insert(key, entry);
+            }
+        }
+    }
+    let mut out: Vec<_> = by_key.into_values().collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+fn pantry_canonical_key(path: &Path) -> String {
+    path.canonicalize()
+        .unwrap_or_else(|_| path.to_path_buf())
+        .to_string_lossy()
+        .into_owned()
+}
+
+fn merge_entry_location(existing: &mut PantryEntry, new_loc: &str) {
+    if existing
+        .location
+        .split(" · ")
+        .any(|loc| loc == new_loc)
+    {
+        return;
+    }
+    existing.location = format!("{} · {}", existing.location, new_loc);
+}
+
+fn entry_from_path(kind: &str, location: &str, path: &Path) -> PantryEntry {
+    PantryEntry {
+        name: pantry_name(kind, path),
+        preview: preview_path(kind, path),
+        location: location.to_string(),
+    }
+}
+
+fn pantry_roots(kind: &str) -> Vec<(&'static str, PathBuf)> {
+    let root = repo_root();
+    let mut out = vec![("kitchen", root.join(kind))];
+    match kind {
+        "skills" => {
+            out.push(("cursor-user", expand_path("~/.cursor/skills")));
+            out.push(("claude-user", expand_path("~/.claude/skills")));
+            if let Ok(cwd) = std::env::current_dir() {
+                out.push(("cursor-project", cwd.join(".cursor/skills")));
+                out.push(("claude-project", cwd.join(".claude/skills")));
+            }
+        }
+        "rules" => {
+            out.push(("cursor-user", expand_path("~/.cursor/rules")));
+            if let Ok(cwd) = std::env::current_dir() {
+                out.push(("cursor-project", cwd.join(".cursor/rules")));
+            }
+        }
+        "extensions" => {
+            out.push(("pi-user", expand_path("~/.pi/agent/extensions")));
+        }
+        _ => {}
+    }
+    out
 }
 
 pub fn classify(item: &Item) -> LinkState {
@@ -110,26 +190,25 @@ pub fn classify(item: &Item) -> LinkState {
 }
 
 fn iter_sources(kind: &str) -> Result<Vec<PathBuf>> {
-    let root = repo_root().join(kind);
-    if !root.is_dir() {
+    iter_at_root(kind, &repo_root().join(kind))
+}
+
+fn iter_at_root(kind: &str, root: &Path) -> Result<Vec<PathBuf>> {
+    if is_cursor_builtin(root) || !root.is_dir() {
         return Ok(Vec::new());
     }
     let mut paths: Vec<PathBuf> = match kind {
-        "skills" => fs::read_dir(&root)?
+        "skills" => fs::read_dir(root)?
             .filter_map(|e| e.ok())
             .map(|e| e.path())
             .filter(|p| p.is_dir() && !should_skip(p) && p.join("SKILL.md").is_file())
             .collect(),
-        "rules" => fs::read_dir(&root)?
+        "rules" => fs::read_dir(root)?
             .filter_map(|e| e.ok())
             .map(|e| e.path())
-            .filter(|p| {
-                p.is_file()
-                    && p.extension().and_then(|e| e.to_str()) == Some("md")
-                    && !should_skip(p)
-            })
+            .filter(|p| p.is_file() && is_rule_file(p) && !should_skip(p))
             .collect(),
-        "extensions" => fs::read_dir(&root)?
+        "extensions" => fs::read_dir(root)?
             .filter_map(|e| e.ok())
             .map(|e| e.path())
             .filter(|p| p.is_file() && !should_skip(p) && has_ext_suffix(p))
@@ -138,6 +217,17 @@ fn iter_sources(kind: &str) -> Result<Vec<PathBuf>> {
     };
     paths.sort();
     Ok(paths)
+}
+
+fn is_rule_file(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|e| e.to_str()),
+        Some("md") | Some("mdc")
+    )
+}
+
+fn is_cursor_builtin(root: &Path) -> bool {
+    root.to_string_lossy().contains("skills-cursor")
 }
 
 fn preview_path(kind: &str, source: &Path) -> PathBuf {
@@ -226,6 +316,36 @@ mod tests {
             preview_path("rules", Path::new("rules/foo.md")),
             Path::new("rules/foo.md")
         );
+    }
+
+    #[test]
+    fn dedupe_entries_merges_symlinked_skill() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path().join("repo/foo");
+        fs::create_dir_all(&repo).unwrap();
+        fs::write(repo.join("SKILL.md"), "body").unwrap();
+        let cursor = tmp.path().join("cursor");
+        fs::create_dir(&cursor).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&repo, cursor.join("foo")).unwrap();
+        #[cfg(not(unix))]
+        return;
+
+        let raw = vec![
+            ("kitchen".into(), repo.clone()),
+            ("cursor-user".into(), cursor.join("foo")),
+        ];
+        let out = dedupe_entries("skills", raw);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].name, "foo");
+        assert_eq!(out[0].location, "kitchen · cursor-user");
+    }
+
+    #[test]
+    fn is_rule_file_accepts_md_and_mdc() {
+        assert!(is_rule_file(Path::new("rules/foo.md")));
+        assert!(is_rule_file(Path::new("rules/foo.mdc")));
+        assert!(!is_rule_file(Path::new("rules/foo.txt")));
     }
 
     #[test]

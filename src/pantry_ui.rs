@@ -1,4 +1,4 @@
-//! Browse skills, rules, and extensions. Preview only — link via serve.
+//! Browse skills, rules, and extensions across repo + harness dirs. Preview only.
 
 use std::fs;
 use std::time::Duration;
@@ -72,7 +72,7 @@ impl App {
     }
 
     fn reload(&mut self) -> Result<()> {
-        self.entries = item::list_kind(self.kind.id())?;
+        self.entries = item::list_pantry(self.kind.id())?;
         let n = self.entries.len();
         if n == 0 {
             self.list.select(None);
@@ -112,7 +112,8 @@ impl App {
                 }
                 Ok(raw) => {
                     self.preview = raw;
-                    self.preview_md = e.preview.extension().and_then(|x| x.to_str()) == Some("md");
+                    self.preview_md = e.preview.extension().and_then(|x| x.to_str()) == Some("md")
+                        || e.preview.extension().and_then(|x| x.to_str()) == Some("mdc");
                 }
                 Err(msg) => {
                     self.preview = msg;
@@ -198,7 +199,7 @@ fn draw(frame: &mut Frame, app: &mut App) {
 
     frame.render_widget(
         Paragraph::new(Line::from(Span::styled(
-            "[TAB]:Kind  [J/K]:Move  [PGUP/DN]:Preview  [Q]:Quit  ·  kitchen serve to link",
+            "[TAB]:Kind  [J/K]:Move  [PGUP/DN]:Preview  [Q]:Quit  ·  kitchen bootstrap · kitchen serve",
             Style::default().fg(theme::muted()),
         ))),
         chunks[2],
@@ -241,7 +242,15 @@ fn draw_kinds(frame: &mut Frame, app: &mut App, area: Rect) {
     } else {
         app.entries
             .iter()
-            .map(|e| ListItem::new(e.name.as_str()))
+            .map(|e| {
+                ListItem::new(Line::from(vec![
+                    Span::raw(&e.name),
+                    Span::styled(
+                        format!("  @{}", e.location),
+                        Style::default().fg(theme::muted()),
+                    ),
+                ]))
+            })
             .collect()
     };
     let list = List::new(items)
@@ -258,10 +267,16 @@ fn draw_kinds(frame: &mut Frame, app: &mut App, area: Rect) {
 
 fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(Clear, area);
+    let loc = app
+        .list
+        .selected()
+        .and_then(|i| app.entries.get(i))
+        .map(|e| format!(" @{}", e.location))
+        .unwrap_or_default();
     let block = Block::bordered()
         .border_type(BorderType::Rounded)
         .border_style(Style::default().fg(theme::muted()))
-        .title(" PREVIEW ")
+        .title(format!(" PREVIEW{loc} "))
         .title_style(theme::ink_bold());
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -347,9 +362,9 @@ fn read_preview(path: &std::path::Path) -> Result<String, String> {
 
 fn empty_kind_msg(kind: Kind) -> &'static str {
     match kind {
-        Kind::Skills => "no skills in skills/",
-        Kind::Rules => "no rules in rules/",
-        Kind::Extensions => "no extensions in extensions/",
+        Kind::Skills => "no skills found (try kitchen bootstrap)",
+        Kind::Rules => "no rules found",
+        Kind::Extensions => "no extensions found",
     }
 }
 

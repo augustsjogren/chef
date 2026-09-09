@@ -12,6 +12,7 @@ use std::process::Command;
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 
+use kitchen::bootstrap;
 use kitchen::config::{expand_path, harness_by_id, load_harnesses, repo_root};
 use kitchen::item::{self, classify, items_for};
 use kitchen::ops::{link_item, unlink_item};
@@ -22,7 +23,7 @@ use kitchen::stove::{cool, print_status, simmer, Burner};
     name = "kitchen",
     version,
     about = "Kitchen CLI — pantry, stove, serve, and chat.",
-    after_help = "Examples:\n  kitchen\n  kitchen pantry\n  kitchen stove\n  kitchen serve\n  kitchen chat\n  kitchen stove simmer mlx"
+    after_help = "Examples:\n  kitchen\n  kitchen pantry\n  kitchen bootstrap\n  kitchen stove\n  kitchen serve\n  kitchen chat\n  kitchen stove simmer mlx"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -39,6 +40,14 @@ enum Cmd {
     Chat,
     /// Print pantry counts
     Status,
+    /// Install kitchen + kitchen-add-skill into a harness skill dir
+    Bootstrap {
+        /// Harness id from harnesses/targets.json
+        #[arg(long, default_value = "cursor-user")]
+        harness: String,
+        #[arg(long)]
+        project: Option<PathBuf>,
+    },
     /// Symlink skills/rules/extensions into Cursor / Claude / Pi
     Serve {
         #[arg(long)]
@@ -86,6 +95,9 @@ fn main() -> Result<()> {
         Some(Cmd::Chat) => run_tui_named("kitchen chat", chat_ui::run),
         Some(Cmd::Prep) => prep(),
         Some(Cmd::Status) => print_pantry(),
+        Some(Cmd::Bootstrap { harness, project }) => {
+            cmd_bootstrap(&harness, project.map(|p| expand_path(&p.to_string_lossy())))
+        }
         Some(Cmd::Serve { project, cmd }) => serve(project, cmd),
         Some(Cmd::Stove { cmd }) => stove(cmd),
         Some(Cmd::Dev { watch, args }) => dev(watch, args),
@@ -201,10 +213,17 @@ fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>) -> Result<()> {
 fn print_pantry() -> Result<()> {
     println!(
         "skills {}  rules {}  extensions {}",
-        item::list_kind("skills")?.len(),
-        item::list_kind("rules")?.len(),
-        item::list_kind("extensions")?.len()
+        item::list_pantry("skills")?.len(),
+        item::list_pantry("rules")?.len(),
+        item::list_pantry("extensions")?.len()
     );
+    Ok(())
+}
+
+fn cmd_bootstrap(harness: &str, project: Option<PathBuf>) -> Result<()> {
+    for (name, result) in bootstrap::bootstrap(harness, project.as_deref())? {
+        println!("skills/{name}: {result}");
+    }
     Ok(())
 }
 
