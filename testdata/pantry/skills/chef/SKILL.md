@@ -24,7 +24,7 @@ Run `./install` once if `chef` is not on PATH.
 
 `chef` (or `chef pantry`) opens a TUI that aggregates skills and rules from:
 
-- slop-kitchen (`~/slop-kitchen`)
+- kitchen (`~/kitchen`)
 - `~/.cursor/skills` and `~/.cursor/rules`
 - `~/.claude/skills`
 - Project `.cursor/skills` and `.cursor/rules` when present in cwd

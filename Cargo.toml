@@ -2,7 +2,7 @@
 name = "chef"
 version = "0.1.0"
 edition = "2021"
-description = "chef — browse slop-kitchen, serve, stove, and chat."
+description = "chef — browse kitchen, serve, stove, and chat."
 
 [[bin]]
 name = "chef"

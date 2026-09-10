@@ -23,7 +23,7 @@ use chef::stove::{cool, print_status, simmer, Burner};
 #[command(
     name = "chef",
     version,
-    about = "chef — browse slop-kitchen, serve, stove, and chat.",
+    about = "chef — browse kitchen, serve, stove, and chat.",
     after_help = "Examples:\n  chef\n  chef bootstrap\n  chef stove\n  chef serve\n  chef chat\n  chef stove simmer mlx"
 )]
 struct Cli {
@@ -40,9 +40,9 @@ enum Cmd {
     Pantry,
     /// Plain chat with a local model on the stove
     Chat,
-    /// Print slop-kitchen counts
+    /// Print kitchen counts
     Status,
-    /// Copy an external skill into slop-kitchen (relinks source by default)
+    /// Copy an external skill into kitchen (relinks source by default)
     Import {
         name: String,
         /// Pantry location label (`cursor-user`, `claude-user`, …)

@@ -6,12 +6,12 @@ use serde::Deserialize;
 
 /// Personal pantry: skills, rules, extensions.
 ///
-/// Order: `$CHEF_PANTRY`, `~/slop-kitchen`, walk up from cwd.
+/// Order: `$CHEF_KITCHEN`, `~/kitchen`, walk up from cwd.
 pub fn pantry_root() -> PathBuf {
-    if let Ok(raw) = std::env::var("CHEF_PANTRY") {
+    if let Ok(raw) = std::env::var("CHEF_KITCHEN") {
         return expand_path(&raw);
     }
-    let home = expand_path("~/slop-kitchen");
+    let home = expand_path("~/kitchen");
     if is_pantry_root(&home) {
         return home;
     }
@@ -24,7 +24,7 @@ pub fn pantry_root() -> PathBuf {
     if is_pantry_root(&tool) {
         return tool;
     }
-    expand_path("~/slop-kitchen")
+    expand_path("~/kitchen")
 }
 
 /// chef CLI repo (harness adapters, built-in tool paths).
@@ -47,7 +47,7 @@ fn find_pantry(start: &Path) -> Option<PathBuf> {
         if is_pantry_root(dir) {
             return Some(dir.to_path_buf());
         }
-        let nested = dir.join("slop-kitchen");
+        let nested = dir.join("kitchen");
         if is_pantry_root(&nested) {
             return Some(nested);
         }

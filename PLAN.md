@@ -4,7 +4,7 @@ Same binary. Two jobs. No extra crates.
 
 ## Jobs
 
-1. **Pantry** — skills, rules, extensions live in slop-kitchen. `chef` browses them. `chef serve` symlinks them into Cursor / Claude / Pi.
+1. **Pantry** — skills, rules, extensions live in kitchen. `chef` browses them. `chef serve` symlinks them into Cursor / Claude / Pi.
 2. **Stove** — local model servers. `chef stove` starts/stops them. `chef chat` talks to whatever is hot.
 
 Linking is only `chef serve`. Pantry does not attach, plate, or dispatch.
@@ -20,4 +20,4 @@ Linking is only `chef serve`. Pantry does not attach, plate, or dispatch.
 
 ## Layout
 
-Canonical pantry in `~/slop-kitchen`. Tool repo has `harnesses/`. Runtime in `~/.chef/` (stove.json, chats, logs). Dest paths: `harnesses/targets.json`.
+Canonical pantry in `~/kitchen`. Tool repo has `harnesses/`. Runtime in `~/.chef/` (stove.json, chats, logs). Dest paths: `harnesses/targets.json`.

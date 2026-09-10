@@ -76,7 +76,7 @@ Keep under 500 lines. Move long reference material to `reference.md`.
 | Cursor project | `.cursor/skills/<name>/SKILL.md` |
 | Claude user | `~/.claude/skills/<name>/SKILL.md` |
 | Claude project | `.claude/skills/<name>/SKILL.md` |
-| slop-kitchen | `skills/<name>/SKILL.md` (canonical; link via `chef serve`) |
+| kitchen | `skills/<name>/SKILL.md` (canonical; link via `chef serve`) |
 
 Never write to `~/.cursor/skills-cursor/` — Cursor built-in skills only.
 
@@ -84,7 +84,7 @@ Never write to `~/.cursor/skills-cursor/` — Cursor built-in skills only.
 
 1. Tell the user the path written
 2. Suggest `chef` pantry TUI to preview (`chef` in terminal)
-3. If written in slop-kitchen, suggest `chef serve` to link into their harness
+3. If written in kitchen, suggest `chef serve` to link into their harness
 
 ## Quality bar
 

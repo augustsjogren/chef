@@ -26,7 +26,7 @@ pub fn import_skill(
         location: location.into(),
         root: source.to_path_buf(),
     }) {
-        bail!("skill already in slop-kitchen");
+        bail!("skill already in kitchen");
     }
     if !source.join("SKILL.md").is_file() {
         bail!("not a skill directory: {}", source.display());
@@ -34,7 +34,7 @@ pub fn import_skill(
 
     let dest = pantry_root().join("skills").join(name);
     if dest.exists() {
-        bail!("skills/{name} already exists in slop-kitchen");
+        bail!("skills/{name} already exists in kitchen");
     }
 
     copy_dir_all(source, &dest).with_context(|| format!("copy into {}", dest.display()))?;
@@ -53,7 +53,7 @@ pub fn import_skill(
     })
 }
 
-/// Find a skill that exists only outside slop-kitchen.
+/// Find a skill that exists only outside kitchen.
 pub fn find_external_skill(name: &str, from: Option<&str>) -> Result<(String, PathBuf)> {
     let mut matches: Vec<(String, PathBuf)> = item::list_pantry("skills", true)?
         .into_iter()
@@ -133,7 +133,7 @@ mod tests {
         fs::write(external.join("SKILL.md"), "skill body").unwrap();
         fs::write(external.join("extra.md"), "more").unwrap();
 
-        std::env::set_var("CHEF_PANTRY", &repo);
+        std::env::set_var("CHEF_KITCHEN", &repo);
         let dest = repo.join("skills/my-skill");
         import_skill("my-skill", &external, "cursor-user", false).unwrap();
 
@@ -145,6 +145,6 @@ mod tests {
             "skill body"
         );
         assert!(fs::symlink_metadata(&external).unwrap().file_type().is_symlink());
-        std::env::remove_var("CHEF_PANTRY");
+        std::env::remove_var("CHEF_KITCHEN");
     }
 }
