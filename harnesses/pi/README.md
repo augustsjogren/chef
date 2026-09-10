@@ -11,7 +11,7 @@ Pi loads **packages** (`settings.json` `packages`) and **extensions** (`~/.pi/ag
 ## Wire extensions
 
 ```bash
-slop-chef serve
+chef serve
 ```
 
 Pick **Pi** in the TUI, select `cap-tool-output.ts`, press `l` to link.
@@ -19,7 +19,7 @@ Pick **Pi** in the TUI, select `cap-tool-output.ts`, press `l` to link.
 Or CLI:
 
 ```bash
-slop-chef serve link pi
+chef serve link pi
 ```
 
 Symlink: `extensions/cap-tool-output.ts` → `~/.pi/agent/extensions/cap-tool-output.ts`. Run `/reload` in Pi after changes.

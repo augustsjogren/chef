@@ -133,7 +133,7 @@ mod tests {
         fs::write(external.join("SKILL.md"), "skill body").unwrap();
         fs::write(external.join("extra.md"), "more").unwrap();
 
-        std::env::set_var("SLOP_CHEF_PANTRY", &repo);
+        std::env::set_var("CHEF_PANTRY", &repo);
         let dest = repo.join("skills/my-skill");
         import_skill("my-skill", &external, "cursor-user", false).unwrap();
 
@@ -145,6 +145,6 @@ mod tests {
             "skill body"
         );
         assert!(fs::symlink_metadata(&external).unwrap().file_type().is_symlink());
-        std::env::remove_var("SLOP_CHEF_PANTRY");
+        std::env::remove_var("CHEF_PANTRY");
     }
 }

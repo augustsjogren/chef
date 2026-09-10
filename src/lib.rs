@@ -1,4 +1,4 @@
-//! slop-chef: pantry items, harness symlinks, stove, and chat.
+//! chef: pantry items, harness symlinks, stove, and chat.
 
 pub mod bootstrap;
 pub mod chat;

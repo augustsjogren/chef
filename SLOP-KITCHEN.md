@@ -1,8 +1,8 @@
 # slop-kitchen
 
-Personal skills, rules, and extensions repo. **Not** the CLI — that's [slop-chef](README.md).
+Personal skills, rules, and extensions repo. **Not** the CLI — that's [chef](README.md).
 
-Browse it with **slop-chef**: `slop-chef` or `slop-chef pantry`.
+Browse it with **chef**: `chef` or `chef pantry`.
 
 | What | Where |
 |------|-------|
@@ -10,9 +10,9 @@ Browse it with **slop-chef**: `slop-chef` or `slop-chef pantry`.
 
 ```bash
 git clone git@github.com:augustsjogren/slop-kitchen.git ~/slop-kitchen
-export SLOP_CHEF_PANTRY="$HOME/slop-kitchen"   # add to ~/.zshrc
-slop-chef bootstrap
-slop-chef serve
+export CHEF_PANTRY="$HOME/slop-kitchen"   # add to ~/.zshrc
+chef bootstrap
+chef serve
 ```
 
-Override anytime with `SLOP_CHEF_PANTRY`.
+Override anytime with `CHEF_PANTRY`.

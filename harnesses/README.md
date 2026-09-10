@@ -8,4 +8,4 @@ Each subdirectory documents:
 2. How to symlink or copy from this repo
 3. Machine- or model-specific notes (context caps, thinking off, ports)
 
-Current: `cursor/`, `claude/`, `pi/`. Dest paths: `targets.json`. Run `slop-chef serve` to symlink.
+Current: `cursor/`, `claude/`, `pi/`. Dest paths: `targets.json`. Run `chef serve` to symlink.

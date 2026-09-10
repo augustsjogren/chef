@@ -90,7 +90,7 @@ pub struct PantryEntry {
     pub location: String,
 }
 
-/// Repo-only listing (used by `slop-chef serve`).
+/// Repo-only listing (used by `chef serve`).
 pub fn list_kind(kind: &str) -> Result<Vec<PantryEntry>> {
     Ok(iter_sources(kind)?
         .into_iter()

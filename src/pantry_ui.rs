@@ -11,8 +11,8 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, List, ListItem, ListState, Paragraph, Tabs};
 use ratatui::{DefaultTerminal, Frame};
 
-use slop_chef::import::import_skill;
-use slop_chef::item::{self, PantryEntry};
+use chef::import::import_skill;
+use chef::item::{self, PantryEntry};
 
 use crate::theme;
 

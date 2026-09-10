@@ -1,11 +1,11 @@
 [package]
-name = "slop-chef"
+name = "chef"
 version = "0.1.0"
 edition = "2021"
-description = "slop-chef — browse slop-kitchen, serve, stove, and chat."
+description = "chef — browse slop-kitchen, serve, stove, and chat."
 
 [[bin]]
-name = "slop-chef"
+name = "chef"
 path = "src/main.rs"
 
 [dependencies]

@@ -1,4 +1,4 @@
-# slop-chef CLI
+# chef CLI
 
 Rust TUI/CLI for browsing [slop-kitchen](https://github.com/augustsjogren/slop-kitchen), linking into Cursor/Claude/Pi, and running local models.
 
@@ -7,7 +7,7 @@ Rust TUI/CLI for browsing [slop-kitchen](https://github.com/augustsjogren/slop-k
 | Name | What |
 |------|------|
 | **slop-kitchen** | Skills/rules/extensions repo (`~/slop-kitchen`) |
-| **slop-chef** | This CLI tool |
+| **chef** | This CLI tool |
 
 This repo is the **tool** only: source, harness adapters (`harnesses/`), CI.
 
@@ -20,18 +20,18 @@ Prefer `edit` over full-file `write` when changing existing files.
 | CLI source | `src/` | Rust |
 | Harness adapters | `harnesses/` | Install paths in `targets.json` |
 | CI fixture | `testdata/pantry/` | Minimal skills for tests only |
-| Runtime state | `~/.slop-chef/` | Stove + chat logs (not in git) |
+| Runtime state | `~/.chef/` | Stove + chat logs (not in git) |
 
-## slop-chef CLI
+## chef CLI
 
 ```bash
 ./install
-slop-chef            # browse ~/slop-kitchen
-slop-chef bootstrap
-slop-chef serve
-slop-chef stove
-slop-chef chat
-slop-chef prep
+chef            # browse ~/slop-kitchen
+chef bootstrap
+chef serve
+chef stove
+chef chat
+chef prep
 ```
 
-Set `SLOP_CHEF_PANTRY` to override the default `~/slop-kitchen` path.
+Set `CHEF_PANTRY` to override the default `~/slop-kitchen` path.

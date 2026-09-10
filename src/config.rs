@@ -6,9 +6,9 @@ use serde::Deserialize;
 
 /// Personal pantry: skills, rules, extensions.
 ///
-/// Order: `$SLOP_CHEF_PANTRY`, `~/slop-kitchen`, walk up from cwd.
+/// Order: `$CHEF_PANTRY`, `~/slop-kitchen`, walk up from cwd.
 pub fn pantry_root() -> PathBuf {
-    if let Ok(raw) = std::env::var("SLOP_CHEF_PANTRY") {
+    if let Ok(raw) = std::env::var("CHEF_PANTRY") {
         return expand_path(&raw);
     }
     let home = expand_path("~/slop-kitchen");
@@ -27,7 +27,7 @@ pub fn pantry_root() -> PathBuf {
     expand_path("~/slop-kitchen")
 }
 
-/// slop-chef CLI repo (harness adapters, built-in tool paths).
+/// chef CLI repo (harness adapters, built-in tool paths).
 pub fn tool_root() -> PathBuf {
     if let Ok(cwd) = std::env::current_dir() {
         if let Some(found) = find_tool_repo(&cwd) {
@@ -39,7 +39,7 @@ pub fn tool_root() -> PathBuf {
 
 /// Local runtime state (stove, chat logs) — not synced via dotfiles.
 pub fn state_dir() -> PathBuf {
-    expand_path("~/.slop-chef")
+    expand_path("~/.chef")
 }
 
 fn find_pantry(start: &Path) -> Option<PathBuf> {

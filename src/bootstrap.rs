@@ -6,9 +6,9 @@ use crate::config::{harness_by_id, pantry_root};
 use crate::item::Item;
 use crate::ops::{link_item, ActionResult};
 
-pub const BOOTSTRAP_SKILLS: &[&str] = &["slop-chef", "slop-chef-add-skill"];
+pub const BOOTSTRAP_SKILLS: &[&str] = &["chef", "chef-add-skill"];
 
-/// Symlink slop-chef meta-skills into a harness skill dir (e.g. `cursor-user`).
+/// Symlink chef meta-skills into a harness skill dir (e.g. `cursor-user`).
 pub fn bootstrap(harness_id: &str, project: Option<&Path>) -> Result<Vec<(String, ActionResult)>> {
     let harness = harness_by_id(harness_id)?;
     if harness.project && project.is_none() {
@@ -43,6 +43,6 @@ mod tests {
 
     #[test]
     fn bootstrap_skill_names() {
-        assert_eq!(BOOTSTRAP_SKILLS, &["slop-chef", "slop-chef-add-skill"]);
+        assert_eq!(BOOTSTRAP_SKILLS, &["chef", "chef-add-skill"]);
     }
 }

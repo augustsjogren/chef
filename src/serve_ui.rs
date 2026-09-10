@@ -11,10 +11,10 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 
-use slop_chef::config::{expand_path, Harness};
-use slop_chef::item::{classify, items_for, Item, LinkState};
-use slop_chef::ops::{link_item, unlink_item};
-use slop_chef::{load_harnesses, pantry_root, tool_root};
+use chef::config::{expand_path, Harness};
+use chef::item::{classify, items_for, Item, LinkState};
+use chef::ops::{link_item, unlink_item};
+use chef::{load_harnesses, pantry_root, tool_root};
 
 use crate::theme;
 

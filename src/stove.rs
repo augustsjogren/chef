@@ -356,7 +356,7 @@ pub fn print_status() -> Result<()> {
         let heat = st.heat().label();
         let pid = st.pid.map(|p| p.to_string()).unwrap_or_else(|| "—".into());
         let tag = if st.managed {
-            "slop-chef"
+            "chef"
         } else if st.heat() != Heat::Cold {
             "external"
         } else {
@@ -379,8 +379,8 @@ pub fn print_status() -> Result<()> {
 
 fn port_for(burner: Burner) -> u16 {
     let key = match burner {
-        Burner::Mlx => "SLOP_CHEF_MLX_PORT",
-        Burner::Ollama => "SLOP_CHEF_OLLAMA_PORT",
+        Burner::Mlx => "CHEF_MLX_PORT",
+        Burner::Ollama => "CHEF_OLLAMA_PORT",
     };
     std::env::var(key)
         .ok()
@@ -571,7 +571,7 @@ fn spawn_logged(cmd: &mut Command, burner: Burner) -> Result<u32> {
             .with_context(|| format!("open log {}", log.display()))?;
         writeln!(
             file,
-            "\n--- slop-chef stove simmer {} @ {stamp} ---",
+            "\n--- chef stove simmer {} @ {stamp} ---",
             burner.id()
         )?;
     }

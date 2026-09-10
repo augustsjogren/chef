@@ -32,7 +32,7 @@ Compaction: `reserveTokens: 12288`, `keepRecentTokens: 16000`.
 Install from this repo:
 
 ```bash
-slop-chef serve
+chef serve
 # in TUI: Pi harness → link cap-tool-output.ts
 ```
 
@@ -46,4 +46,4 @@ Caps read/bash/grep output before the model sees it; redacts large `edit` args i
 2. Pi (default provider `:8080`)
 3. Prefer `edit` over full-file `write` — long writes are the main decode bottleneck
 
-Full notes: `harnesses/pi/qwen-local.md` in the slop-chef repo.
+Full notes: `harnesses/pi/qwen-local.md` in the chef repo.

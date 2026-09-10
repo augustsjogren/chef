@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install — first-time setup: rust toolchain, slop-chef on PATH, shell hook for ~/.cargo/bin
+# install — first-time setup: rust toolchain, chef on PATH, shell hook for ~/.cargo/bin
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")" && pwd)"
@@ -52,7 +52,7 @@ ensure_path_hook() {
   fi
   {
     echo ""
-    echo "# rust / cargo (added by slop-chef install)"
+    echo "# rust / cargo (added by chef install)"
     echo "$cargo_env"
   } >>"$profile"
   say "install: added cargo env to $profile"
@@ -66,17 +66,17 @@ build_and_install() {
 }
 
 verify() {
-  if command -v slop-chef >/dev/null 2>&1; then
-    say "install: slop-chef -> $(command -v slop-chef)"
-    slop-chef --version 2>/dev/null || slop-chef --help | head -1
+  if command -v chef >/dev/null 2>&1; then
+    say "install: chef -> $(command -v chef)"
+    chef --version 2>/dev/null || chef --help | head -1
     return 0
   fi
-  if [[ -x "$HOME/.cargo/bin/slop-chef" ]]; then
-    say "install: slop-chef -> $HOME/.cargo/bin/slop-chef"
+  if [[ -x "$HOME/.cargo/bin/chef" ]]; then
+    say "install: chef -> $HOME/.cargo/bin/chef"
     say "install: open a new shell or: source $(profile_file)"
     return 0
   fi
-  err "slop-chef not found after install"
+  err "chef not found after install"
   exit 1
 }
 
@@ -88,9 +88,9 @@ main() {
   verify
   say ""
   say "done. open a new terminal, then:"
-  say "  slop-chef"
+  say "  chef"
   say ""
-  say "reinstall after pulling: slop-chef prep"
+  say "reinstall after pulling: chef prep"
 }
 
 main "$@"
