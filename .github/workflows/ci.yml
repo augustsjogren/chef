@@ -19,3 +19,4 @@ jobs:
       - run: cargo test
         env:
           CHEF_KITCHEN: ${{ github.workspace }}/testdata/pantry
+      - run: cargo package --locked

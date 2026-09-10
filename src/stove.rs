@@ -548,15 +548,14 @@ fn start_ollama(port: u16) -> Result<u32> {
 }
 
 fn which(bin: &str) -> Result<PathBuf> {
-    let out = Command::new("which").arg(bin).output().context("which")?;
-    if !out.status.success() {
-        bail!("{bin} not found");
+    let path_var = std::env::var_os("PATH").context("PATH is unset")?;
+    for dir in std::env::split_paths(&path_var) {
+        let candidate = dir.join(bin);
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
     }
-    let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if path.is_empty() {
-        bail!("{bin} not found");
-    }
-    Ok(PathBuf::from(path))
+    bail!("{bin} not found on PATH — install it or add its directory to PATH");
 }
 
 fn spawn_logged(cmd: &mut Command, burner: Burner) -> Result<u32> {

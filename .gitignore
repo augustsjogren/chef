@@ -11,3 +11,7 @@ __pycache__/
 .chef/stove.json
 .chef/logs/
 .chef/chats/
+
+# Pix Agent
+.pi/
+.pi-lens/

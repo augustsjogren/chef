@@ -13,8 +13,8 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 
 use chef::bootstrap;
-use chef::import::{find_external_skill, import_skill};
 use chef::config::{expand_path, harness_by_id, load_harnesses, tool_root};
+use chef::import::{find_external_skill, import_skill};
 use chef::item::{self, classify, items_for};
 use chef::ops::{link_item, unlink_item};
 use chef::stove::{cool, print_status, simmer, Burner};
@@ -42,7 +42,10 @@ enum Cmd {
     Chat,
     /// Print kitchen counts
     Status,
-    /// Copy an external skill into kitchen (relinks source by default)
+    /// Copy an external skill into kitchen
+    ///
+    /// Use --keep-source for a second copy, or --force to replace the external
+    /// source with a symlink to the kitchen copy.
     Import {
         name: String,
         /// Pantry location label (`cursor-user`, `claude-user`, …)
@@ -51,6 +54,9 @@ enum Cmd {
         /// Keep the original copy instead of replacing it with a symlink
         #[arg(long)]
         keep_source: bool,
+        /// Allow replacing external source directory with a symlink
+        #[arg(long, conflicts_with = "keep_source")]
+        force: bool,
     },
     /// Install chef + chef-add-skill into a harness skill dir
     Bootstrap {
@@ -62,11 +68,16 @@ enum Cmd {
     },
     /// Symlink skills/rules/extensions into Cursor / Claude / Pi
     Serve {
+        /// Show planned link changes without modifying harness directories
+        #[arg(long)]
+        dry_run: bool,
         #[arg(long)]
         project: Option<PathBuf>,
         #[command(subcommand)]
         cmd: Option<ServeCmd>,
     },
+    /// Install persistent compact rendering for pi-fff
+    SyncPiFff,
     /// Local model servers on the stove (MLX, Ollama)
     Stove {
         #[command(subcommand)]
@@ -111,11 +122,17 @@ fn main() -> Result<()> {
             name,
             from,
             keep_source,
-        }) => cmd_import(&name, from.as_deref(), keep_source),
+            force,
+        }) => cmd_import(&name, from.as_deref(), keep_source, force),
         Some(Cmd::Bootstrap { harness, project }) => {
             cmd_bootstrap(&harness, project.map(|p| expand_path(&p.to_string_lossy())))
         }
-        Some(Cmd::Serve { project, cmd }) => serve(project, cmd),
+        Some(Cmd::Serve {
+            dry_run,
+            project,
+            cmd,
+        }) => serve(project, cmd, dry_run),
+        Some(Cmd::SyncPiFff) => sync_pi_fff(),
         Some(Cmd::Stove { cmd }) => stove(cmd),
         Some(Cmd::Dev { watch, args }) => dev(watch, args),
     }
@@ -199,7 +216,7 @@ fn cargo(root: &std::path::Path, args: &[&str]) -> Result<()> {
     Ok(())
 }
 
-fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>) -> Result<()> {
+fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>, dry_run: bool) -> Result<()> {
     let project = project.map(|p| expand_path(&p.to_string_lossy()));
     match cmd {
         None => {
@@ -222,8 +239,8 @@ fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>) -> Result<()> {
             }
             Ok(())
         }
-        Some(ServeCmd::Link { harness }) => apply(&harness, project.as_deref(), true),
-        Some(ServeCmd::Unlink { harness }) => apply(&harness, project.as_deref(), false),
+        Some(ServeCmd::Link { harness }) => apply(&harness, project.as_deref(), true, dry_run),
+        Some(ServeCmd::Unlink { harness }) => apply(&harness, project.as_deref(), false, dry_run),
     }
 }
 
@@ -237,14 +254,24 @@ fn print_pantry() -> Result<()> {
     Ok(())
 }
 
-fn cmd_import(name: &str, from: Option<&str>, keep_source: bool) -> Result<()> {
+fn cmd_import(name: &str, from: Option<&str>, keep_source: bool, force: bool) -> Result<()> {
     let (location, source) = find_external_skill(name, from)?;
-    let result = import_skill(name, &source, &location, keep_source)?;
+    let result = import_skill(name, &source, &location, keep_source, force)?;
     println!("imported skills/{name} → {}", result.repo_path.display());
     if let Some(loc) = result.relinked {
         println!("relinked {loc} → repo (no duplicate copy)");
     } else if keep_source {
         println!("kept original at {}", source.display());
+    }
+    Ok(())
+}
+
+fn sync_pi_fff() -> Result<()> {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let script = root.join("scripts/sync-pi-fff.sh");
+    let status = std::process::Command::new("bash").arg(&script).status()?;
+    if !status.success() {
+        bail!("sync-pi-fff failed");
     }
     Ok(())
 }
@@ -305,12 +332,21 @@ fn stove(cmd: Option<StoveCmd>) -> Result<()> {
     }
 }
 
-fn apply(id: &str, project: Option<&std::path::Path>, link: bool) -> Result<()> {
+fn apply(id: &str, project: Option<&std::path::Path>, link: bool, dry_run: bool) -> Result<()> {
     let harness = harness_by_id(id)?;
     if harness.project && project.is_none() {
         bail!("{} needs --project", harness.id);
     }
     for item in items_for(&harness, project)? {
+        if dry_run {
+            println!(
+                "{}: would {} → {}",
+                item.key(),
+                if link { "link" } else { "unlink" },
+                item.dest.display()
+            );
+            continue;
+        }
         let result = if link {
             link_item(&item)
         } else {

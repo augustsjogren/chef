@@ -8,7 +8,8 @@ static LIGHT_BG: OnceLock<bool> = OnceLock::new();
 
 fn light_background() -> bool {
     *LIGHT_BG.get_or_init(|| {
-        match std::env::var("CHEF_THEME").ok()
+        match std::env::var("CHEF_THEME")
+            .ok()
             .as_deref()
             .map(str::to_ascii_lowercase)
         {

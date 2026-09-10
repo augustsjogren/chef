@@ -12,13 +12,14 @@ pub struct ImportResult {
     pub relinked: Option<String>,
 }
 
-/// Copy an external skill into `skills/<name>/`. By default replace the source with a symlink
-/// to the repo copy so Cursor/Claude keep working without a second on-disk copy.
+/// Copy an external skill into `skills/<name>`. Relinking the source is destructive and requires
+/// `force`; use `keep_source` to retain the original directory instead.
 pub fn import_skill(
     name: &str,
     source: &Path,
     location: &str,
     keep_source: bool,
+    force: bool,
 ) -> Result<ImportResult> {
     if item::is_pantry_entry(&PantryEntry {
         name: name.into(),
@@ -35,6 +36,13 @@ pub fn import_skill(
     let dest = pantry_root().join("skills").join(name);
     if dest.exists() {
         bail!("skills/{name} already exists in kitchen");
+    }
+
+    if !keep_source && !force {
+        bail!(
+            "refusing to replace external source {}; rerun with --force or --keep-source",
+            source.display()
+        );
     }
 
     copy_dir_all(source, &dest).with_context(|| format!("copy into {}", dest.display()))?;
@@ -92,15 +100,53 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
 }
 
 fn replace_with_symlink(target: &Path, link_path: &Path) -> Result<()> {
-    let meta = fs::symlink_metadata(link_path)?;
-    if meta.file_type().is_symlink() {
-        fs::remove_file(link_path)?;
-    } else if meta.is_dir() {
-        fs::remove_dir_all(link_path)?;
-    } else {
-        fs::remove_file(link_path)?;
+    let backup = backup_path(link_path)?;
+    fs::rename(link_path, &backup)
+        .with_context(|| format!("move {} to backup", link_path.display()))?;
+
+    match symlink(target, link_path) {
+        Ok(()) => {
+            remove_path(&backup).with_context(|| format!("remove backup {}", backup.display()))?;
+            Ok(())
+        }
+        Err(error) => {
+            let _ = remove_path(link_path);
+            fs::rename(&backup, link_path).with_context(|| {
+                format!(
+                    "restore {} after symlink failure ({error})",
+                    link_path.display()
+                )
+            })?;
+            Err(error)
+        }
     }
-    symlink(target, link_path)?;
+}
+
+fn backup_path(path: &Path) -> Result<PathBuf> {
+    let parent = path.parent().context("path has no parent")?;
+    let name = path
+        .file_name()
+        .context("path has no filename")?
+        .to_string_lossy();
+    for attempt in 0..100 {
+        let candidate = parent.join(format!(
+            ".{name}.chef-import-backup-{}-{attempt}",
+            std::process::id()
+        ));
+        if fs::symlink_metadata(&candidate).is_err() {
+            return Ok(candidate);
+        }
+    }
+    bail!("could not allocate backup path for {}", path.display());
+}
+
+fn remove_path(path: &Path) -> Result<()> {
+    let meta = fs::symlink_metadata(path)?;
+    if meta.file_type().is_symlink() || !meta.is_dir() {
+        fs::remove_file(path)?;
+    } else {
+        fs::remove_dir_all(path)?;
+    }
     Ok(())
 }
 
@@ -117,25 +163,34 @@ fn symlink(_source: &Path, _dest: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn kitchen_env_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+    }
+
+    fn setup_import_fixture() -> (tempfile::TempDir, PathBuf, PathBuf) {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path().join("pantry");
+        fs::create_dir_all(repo.join("skills")).unwrap();
+        let external = tmp.path().join("cursor/my-skill");
+        fs::create_dir_all(&external).unwrap();
+        fs::write(external.join("SKILL.md"), "skill body").unwrap();
+        fs::write(external.join("extra.md"), "more").unwrap();
+        (tmp, repo, external)
+    }
 
     #[test]
     fn import_copies_and_relinks_by_default() {
         #[cfg(not(unix))]
         return;
 
-        let tmp = tempfile::tempdir().unwrap();
-        let repo = tmp.path().join("pantry");
-        fs::create_dir_all(repo.join("skills")).unwrap();
-        let external_root = tmp.path().join("cursor");
-        fs::create_dir_all(&external_root).unwrap();
-        let external = external_root.join("my-skill");
-        fs::create_dir_all(&external).unwrap();
-        fs::write(external.join("SKILL.md"), "skill body").unwrap();
-        fs::write(external.join("extra.md"), "more").unwrap();
-
+        let _lock = kitchen_env_lock();
+        let (_tmp, repo, external) = setup_import_fixture();
         std::env::set_var("CHEF_KITCHEN", &repo);
         let dest = repo.join("skills/my-skill");
-        import_skill("my-skill", &external, "cursor-user", false).unwrap();
+        import_skill("my-skill", &external, "cursor-user", false, true).unwrap();
 
         assert!(dest.join("SKILL.md").is_file());
         assert!(dest.join("extra.md").is_file());
@@ -144,7 +199,44 @@ mod tests {
             fs::read_to_string(external.join("SKILL.md")).unwrap(),
             "skill body"
         );
-        assert!(fs::symlink_metadata(&external).unwrap().file_type().is_symlink());
+        assert!(fs::symlink_metadata(&external)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        std::env::remove_var("CHEF_KITCHEN");
+    }
+
+    #[test]
+    fn import_refuses_relink_without_force_before_copying() {
+        let _lock = kitchen_env_lock();
+        let (_tmp, repo, external) = setup_import_fixture();
+        std::env::set_var("CHEF_KITCHEN", &repo);
+
+        let err = import_skill("my-skill", &external, "cursor-user", false, false)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("--force or --keep-source"));
+        assert!(!repo.join("skills/my-skill").exists());
+        assert!(external.join("SKILL.md").is_file());
+
+        std::env::remove_var("CHEF_KITCHEN");
+    }
+
+    #[test]
+    fn import_keep_source_does_not_relink() {
+        let _lock = kitchen_env_lock();
+        let (_tmp, repo, external) = setup_import_fixture();
+        std::env::set_var("CHEF_KITCHEN", &repo);
+
+        let result = import_skill("my-skill", &external, "cursor-user", true, false).unwrap();
+        assert!(result.relinked.is_none());
+        assert!(repo.join("skills/my-skill/SKILL.md").is_file());
+        assert!(external.join("SKILL.md").is_file());
+        assert!(!fs::symlink_metadata(&external)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+
         std::env::remove_var("CHEF_KITCHEN");
     }
 }

@@ -1,43 +1,139 @@
 # chef
 
-CLI for browsing [kitchen](https://github.com/augustsjogren/kitchen), importing skills, linking into Cursor/Claude/Pi, and running local models.
+`chef` is a personal Rust CLI/TUI for browsing a skill pantry, importing skills, linking them into AI coding harnesses, and running local models. This repository is published primarily as a showcase of one working setup, not as an actively supported general-purpose product.
 
-**Skills live in [kitchen](https://github.com/augustsjogren/kitchen)** (`~/kitchen`), not here. See [KITCHEN.md](KITCHEN.md).
+Supported platforms: **macOS and Linux**. Windows is not currently supported because serving and importing use Unix symlinks and Unix process tools.
 
-| Repo | Role |
-|------|------|
-| [augustsjogren/kitchen](https://github.com/augustsjogren/kitchen) | Skills, rules, extensions |
-| [augustsjogren/chef](https://github.com/augustsjogren/chef) | This CLI |
+Skills do not live in this repository. They live in [kitchen](https://github.com/augustsjogren/kitchen), which `chef` discovers at `~/kitchen` by default. See [KITCHEN.md](KITCHEN.md).
+
+| Repository | Role |
+|---|---|
+| [augustsjogren/kitchen](https://github.com/augustsjogren/kitchen) | Skills, rules, and extensions |
+| [augustsjogren/chef](https://github.com/augustsjogren/chef) | CLI and TUI in this repository |
+
+## Requirements
+
+- macOS or Linux
+- Git
+- Rust and Cargo ([install Rust with rustup](https://rustup.rs/))
+- Optional: Cursor, Claude, or Pi for `chef serve`
+- Optional: Ollama or MLX for local-model commands
 
 ## Install
 
+Clone this repository, then run the installer:
+
 ```bash
+git clone https://github.com/augustsjogren/chef.git
+cd chef
 ./install
-git clone git@github.com:augustsjogren/kitchen.git ~/kitchen
-chef bootstrap && chef serve
+```
+
+Preview installer actions without changing files:
+
+```bash
+./install --dry-run
+```
+
+Skip shell profile changes:
+
+```bash
+./install --no-shell-modification
+```
+
+The installer builds `chef`, installs it through Cargo, and adds Cargo's bin directory to your shell startup file when needed. It does not install Rust or modify system packages.
+
+Clone the skills repository and start using `chef`:
+
+```bash
+git clone https://github.com/augustsjogren/kitchen.git ~/kitchen
+chef bootstrap
+chef serve
 chef
 ```
 
-After pulling **this** repo: `chef prep`.
+After changing this repository, run `chef prep` to rebuild and reinstall the binary.
 
-## CLI
+## Showcase demo
 
-The binary is **`chef`**. Bare `chef` opens the browse TUI. Skills live in the **kitchen** repo.
+Typical first run:
+
+```text
+$ chef status
+skills 42  rules 8  extensions 3
+
+$ chef
+┌ pantry ───────────────────────────────────────────────┐
+│ skills                                                │
+│   review                                              │
+│   tdd                                                 │
+│   frontend-design                                     │
+└───────────────────────────────────────────────────────┘
+
+$ chef serve
+linked kitchen into cursor-user, claude-user, pi-user
+```
+
+The exact counts and harnesses depend on your `kitchen` repository. The TUI is the main experience; CLI commands make setup and linking scriptable.
+
+## Commands
+
+The binary is **`chef`**. Running it without a subcommand opens the browse TUI.
 
 | Command | What |
-|---------|------|
-| `chef` | Browse kitchen (**A** = all sources, **I** = import) |
-| `chef import <name>` | Copy external skill into kitchen |
+|---|---|
+| `chef` / `chef pantry` | Browse skills, rules, and extensions |
+| `chef import <name> --keep-source` | Import an external skill and keep original copy |
+| `chef import <name> --force` | Import and replace original source with a symlink |
 | `chef bootstrap` | Install meta-skills into a harness |
-| `chef serve` | Symlink kitchen into Cursor / Claude / Pi |
-| `chef stove` / `chef chat` | Local models |
-| `chef status` | kitchen counts |
-| `chef prep` | Rebuild + reinstall CLI |
+| `chef serve` | Preview/link kitchen content through the TUI |
+| `chef serve --dry-run link --harness <id>` | Preview links without changing harness directories |
+| `chef stove` | Manage local model servers |
+| `chef chat` | Chat with a running local model |
+| `chef status` | Print kitchen counts |
+| `chef prep` | Rebuild and reinstall this CLI |
 
-Runtime state: `~/.chef/`
+The browse TUI supports `A` for all sources and `I` for import. Run `chef <command> --help` for options.
 
-## Env
+## Personal assumptions
 
-| Variable | Default |
-|----------|---------|
-| `CHEF_KITCHEN` | `~/kitchen` |
+This setup reflects one developer's workflow:
+
+- `kitchen` is a separate personal repository at `~/kitchen`.
+- Cursor, Claude, and Pi are the supported harness targets.
+- Unix symlinks are preferred over duplicated skill files.
+- Local model workflows use Ollama, MLX, LM Studio, and Pi-specific scripts where configured.
+- `~/.chef/` is personal runtime state, not portable project configuration.
+- Harness paths and model commands may need edits for another machine.
+
+`chef` is intentionally opinionated. Fork or adapt `harnesses/targets.json` and local-model configuration rather than expecting zero-configuration support for every environment.
+
+## Configuration and state
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `CHEF_KITCHEN` | `~/kitchen` | Override kitchen location |
+
+Runtime state is stored in `~/.chef/`. This includes model state, logs, and chat transcripts. Kitchen content is not copied into this repository.
+
+## Troubleshooting
+
+- If `chef` is not found after installation, open a new shell or source your shell profile.
+- If no kitchen is found, clone `kitchen` to `~/kitchen` or set `CHEF_KITCHEN`.
+- If `chef serve` cannot create links, verify that destination directories are writable and that your platform supports Unix symlinks.
+- Local-model commands require their respective model runtime and binaries to be installed separately.
+- `chef import <name>` refuses destructive relinking unless you pass `--force` or choose `--keep-source`.
+
+## Development
+
+```bash
+cargo fmt --check
+cargo clippy -- -D warnings
+cargo test
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

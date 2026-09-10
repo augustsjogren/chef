@@ -141,18 +141,11 @@ fn pantry_canonical_key(path: &Path) -> String {
 
 /// True when this entry lives in the personal pantry (may also be linked elsewhere).
 pub fn is_pantry_entry(entry: &PantryEntry) -> bool {
-    entry
-        .location
-        .split(" · ")
-        .any(|loc| loc == "pantry")
+    entry.location.split(" · ").any(|loc| loc == "pantry")
 }
 
 fn merge_entry_location(existing: &mut PantryEntry, new_loc: &str) {
-    if existing
-        .location
-        .split(" · ")
-        .any(|loc| loc == new_loc)
-    {
+    if existing.location.split(" · ").any(|loc| loc == new_loc) {
         return;
     }
     existing.location = format!("{} · {}", existing.location, new_loc);

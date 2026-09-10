@@ -124,7 +124,7 @@ impl App {
             self.flash = "already in pantry".into();
             return Ok(());
         }
-        match import_skill(&entry.name, &entry.root, &entry.location, false) {
+        match import_skill(&entry.name, &entry.root, &entry.location, false, true) {
             Ok(result) => {
                 self.flash = if result.relinked.is_some() {
                     format!("imported {} → repo, relinked", entry.name)

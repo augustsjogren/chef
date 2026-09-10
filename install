@@ -1,9 +1,30 @@
 #!/usr/bin/env bash
-# install — first-time setup: rust toolchain, chef on PATH, shell hook for ~/.cargo/bin
+# install — build chef, install it on PATH, and optionally add Cargo shell hook
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")" && pwd)"
 cd "$root"
+
+dry_run=false
+modify_shell=true
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) dry_run=true ;;
+    --no-shell-modification) modify_shell=false ;;
+    -h|--help)
+      cat <<'EOF'
+Usage: ./install [OPTIONS]
+
+Build and install chef. Options:
+  --dry-run                  Show actions without changing system or building
+  --no-shell-modification   Do not edit shell startup files
+  -h, --help                Show this help
+EOF
+      exit 0
+      ;;
+    *) err "unknown option: $arg"; exit 2 ;;
+  esac
+done
 
 cargo_env='. "$HOME/.cargo/env"'
 cargo_bin_line='export PATH="$HOME/.cargo/bin:$PATH"'
@@ -12,6 +33,10 @@ say() { printf '%s\n' "$*"; }
 err() { printf 'install: %s\n' "$*" >&2; }
 
 ensure_rust() {
+  if [[ "$dry_run" == true ]]; then
+    say "install: would check for Rust/Cargo"
+    return 0
+  fi
   if [[ -f "$HOME/.cargo/env" ]]; then
     # shellcheck source=/dev/null
     source "$HOME/.cargo/env"
@@ -19,10 +44,8 @@ ensure_rust() {
   if command -v cargo >/dev/null 2>&1; then
     return 0
   fi
-  err "no cargo — installing rustup"
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-  # shellcheck source=/dev/null
-  source "$HOME/.cargo/env"
+  err "Cargo not found — install Rust from https://rustup.rs, then rerun ./install"
+  exit 1
 }
 
 profile_file() {
@@ -42,6 +65,14 @@ profile_file() {
 ensure_path_hook() {
   local profile
   profile="$(profile_file)"
+  if [[ "$modify_shell" == false ]]; then
+    say "install: skipping shell profile modification"
+    return 0
+  fi
+  if [[ "$dry_run" == true ]]; then
+    say "install: would add Cargo environment to $profile"
+    return 0
+  fi
   if [[ ! -f "$profile" ]]; then
     touch "$profile"
   fi
@@ -59,6 +90,11 @@ ensure_path_hook() {
 }
 
 build_and_install() {
+  if [[ "$dry_run" == true ]]; then
+    say "install: would run cargo build"
+    say "install: would run cargo install --path . --force"
+    return 0
+  fi
   say "install: cargo build"
   cargo build
   say "install: cargo install --path ."
@@ -85,6 +121,10 @@ main() {
   ensure_rust
   ensure_path_hook
   build_and_install
+  if [[ "$dry_run" == true ]]; then
+    say "install: dry run complete"
+    return 0
+  fi
   verify
   say ""
   say "done. open a new terminal, then:"
