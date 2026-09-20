@@ -19,6 +19,7 @@
       "id": "pi",
       "label": "Pi",
       "kinds": {
+        "skills": { "dir": "~/.pi/agent/skills", "mode": "dir" },
         "extensions": { "dir": "~/.pi/agent/extensions", "mode": "file" }
       }
     },

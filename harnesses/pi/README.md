@@ -1,20 +1,20 @@
 # Pi
 
-Pi loads **packages** (`settings.json` `packages`) and **extensions** (`~/.pi/agent/extensions/*.ts`). It does not automatically read this repo.
+Pi loads skills from `~/.pi/agent/skills/`, plus packages and extensions. `chef serve` can link skills and extensions into Pi.
 
 | Kind | This repo | Pi load path |
 |------|-----------|--------------|
 | Extension | `extensions/` | `~/.pi/agent/extensions/` |
-| Skill | `skills/` | Via package or prompt — see `local-pi-qwen` |
+| Skill | `skills/` | `~/.pi/agent/skills/` |
 | Rule | `rules/` | Project `AGENTS.md` or Pi package |
 
-## Wire extensions
+## Wire skills and extensions
 
 ```bash
 chef serve
 ```
 
-Pick **Pi** in the TUI, select `cap-tool-output.ts`, press `l` to link.
+Pick **Pi** in the TUI, select skills or extensions, press `l` to link.
 
 Or CLI:
 
@@ -22,7 +22,7 @@ Or CLI:
 chef serve link pi
 ```
 
-Symlink: `extensions/cap-tool-output.ts` → `~/.pi/agent/extensions/cap-tool-output.ts`. Run `/reload` in Pi after changes.
+Skills are symlinked into `~/.pi/agent/skills/`; extensions are symlinked into `~/.pi/agent/extensions/`. Restart Pi after skill changes; run `/reload` after extension changes.
 
 ## Local Qwen stack
 
