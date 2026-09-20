@@ -1,6 +1,10 @@
 # chef
 
-`chef` is a personal Rust CLI/TUI for browsing a skill pantry, importing skills, linking them into AI coding harnesses, and running local models. This repository is published primarily as a showcase of one working setup, not as an actively supported general-purpose product.
+<img src="assets/chef.png" alt="Pixel-art chef mascot" width="320">
+
+*Skills in, good code out.*
+
+`chef` is a personal Rust CLI/TUI for browsing a skill pantry, importing skills, linking them into AI coding harnesses, and running local models. It is less “enterprise platform” and more “small kitchen where the mise en place is unusually well organized.” This repository is a showcase of one working setup, not an actively supported general-purpose product.
 
 Supported platforms: **macOS and Linux**. Windows is not currently supported because serving and importing use Unix symlinks and Unix process tools.
 
@@ -13,6 +17,8 @@ Skills do not live in this repository. They live in [kitchen](https://github.com
 
 ## Requirements
 
+Bring an appetite for terminal interfaces. The kitchen itself is optional; `chef` will tell you where to find one.
+
 - macOS or Linux
 - Git
 - Rust and Cargo ([install Rust with rustup](https://rustup.rs/))
@@ -20,6 +26,8 @@ Skills do not live in this repository. They live in [kitchen](https://github.com
 - Optional: Ollama or MLX for local-model commands
 
 ## Install
+
+First, put on your terminal apron:
 
 Clone this repository, then run the installer:
 
@@ -56,7 +64,7 @@ After changing this repository, run `chef prep` to rebuild and reinstall the bin
 
 ## Showcase demo
 
-Typical first run:
+A typical first service looks like this:
 
 ```text
 $ chef status
@@ -74,11 +82,11 @@ $ chef serve
 linked kitchen into cursor-user, claude-user, pi-user
 ```
 
-The exact counts and harnesses depend on your `kitchen` repository. The TUI is the main experience; CLI commands make setup and linking scriptable.
+The exact counts and harnesses depend on your `kitchen` repository. The TUI is the main dining room; CLI commands are the prep cooks making setup and linking scriptable.
 
 ## Commands
 
-The binary is **`chef`**. Running it without a subcommand opens the browse TUI.
+The binary is **`chef`**. Running it without a subcommand opens the browse TUI. No reservation required.
 
 | Command | What |
 |---|---|
@@ -86,7 +94,7 @@ The binary is **`chef`**. Running it without a subcommand opens the browse TUI.
 | `chef import <name> --keep-source` | Import an external skill and keep original copy |
 | `chef import <name> --force` | Import and replace original source with a symlink |
 | `chef bootstrap` | Install meta-skills into a harness |
-| `chef serve` | Preview/link kitchen content through the TUI |
+| `chef serve` | Preview/link kitchen content through the TUI; no crumbs left behind |
 | `chef serve --dry-run link --harness <id>` | Preview links without changing harness directories |
 | `chef stove` | Manage local model servers |
 | `chef chat` | Chat with a running local model |
@@ -106,7 +114,7 @@ This setup reflects one developer's workflow:
 - `~/.chef/` is personal runtime state, not portable project configuration.
 - Harness paths and model commands may need edits for another machine.
 
-`chef` is intentionally opinionated. Fork or adapt `harnesses/targets.json` and local-model configuration rather than expecting zero-configuration support for every environment.
+`chef` is intentionally opinionated. It has a favorite knife and strong feelings about mise en place. Fork or adapt `harnesses/targets.json` and local-model configuration rather than expecting zero-configuration support for every environment.
 
 ## Configuration and state
 
