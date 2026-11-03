@@ -114,10 +114,15 @@ impl Harness {
     }
 }
 
+/// Harness definitions are static CLI metadata, so they're embedded at compile
+/// time rather than read from disk. Reading them from `tool_root()` at runtime
+/// broke every harness-aware command once a binary built from a temporary
+/// checkout (e.g. `cargo install --path /tmp/chef-checkout`) outlived that
+/// checkout.
+const TARGETS_JSON: &str = include_str!("../harnesses/targets.json");
+
 pub fn load_harnesses() -> Result<Vec<Harness>> {
-    let path = tool_root().join("harnesses/targets.json");
-    let raw = std::fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
-    let file: TargetsFile = serde_json::from_str(&raw).context("parse targets.json")?;
+    let file: TargetsFile = serde_json::from_str(TARGETS_JSON).context("parse targets.json")?;
     Ok(file.harnesses)
 }
 

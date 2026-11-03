@@ -100,6 +100,11 @@ enum ServeCmd {
     Harnesses,
     Link { harness: String },
     Unlink { harness: String },
+    /// Link every given harness (default: all non-project harnesses) in one pass
+    Sync {
+        /// Harness ids to link (default: all non-project harnesses)
+        harnesses: Vec<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -241,6 +246,23 @@ fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>, dry_run: bool) -> Resu
         }
         Some(ServeCmd::Link { harness }) => apply(&harness, project.as_deref(), true, dry_run),
         Some(ServeCmd::Unlink { harness }) => apply(&harness, project.as_deref(), false, dry_run),
+        Some(ServeCmd::Sync { harnesses }) => {
+            let ids: Vec<String> = if harnesses.is_empty() {
+                load_harnesses()?
+                    .into_iter()
+                    .filter(|h| !h.project)
+                    .map(|h| h.id)
+                    .collect()
+            } else {
+                harnesses
+            };
+            for id in ids {
+                println!("# {id}");
+                apply(&id, project.as_deref(), true, dry_run)?;
+                println!();
+            }
+            Ok(())
+        }
     }
 }
 
