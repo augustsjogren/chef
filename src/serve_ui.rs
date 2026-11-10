@@ -423,6 +423,10 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                 .unwrap_or_else(|| "not configured".into());
             let details = vec![
                 Line::from(Span::styled(harness.label.clone(), theme::ink_bold())),
+                Line::from(Span::styled(
+                    family_desc(&harness.id).to_string(),
+                    Style::default().fg(theme::muted()),
+                )),
                 Line::from(""),
                 Line::from(format!("Provides: {}", harness.kind_names())),
                 Line::from(format!(
@@ -588,6 +592,17 @@ fn capitalize(s: &str) -> String {
     match c.next() {
         Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
         None => String::new(),
+    }
+}
+
+/// One-line plain explanation of what a harness family actually is.
+fn family_desc(harness_id: &str) -> &'static str {
+    match harness_id.split('-').next().unwrap_or(harness_id) {
+        "cursor" => "Cursor editor links (user + project).",
+        "claude" => "Claude Code links (user + project).",
+        "pi" => "Pi coding agent links into ~/.pi/agent.",
+        "agents" => "Generic user-level skills dir shared by agent CLIs.",
+        _ => "",
     }
 }
 
