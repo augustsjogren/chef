@@ -5,6 +5,7 @@ mod serve_ui;
 mod stove_ui;
 mod theme;
 mod tty;
+mod unified_ui;
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -118,7 +119,7 @@ enum StoveCmd {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
-        None => run_tui_named("chef", pantry_ui::run),
+        None => run_tui_named("chef", unified_ui::run),
         Some(Cmd::Pantry) => run_tui_named("chef pantry", pantry_ui::run),
         Some(Cmd::Chat) => run_tui_named("chef chat", chat_ui::run),
         Some(Cmd::Prep) => prep(),

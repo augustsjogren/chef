@@ -14,6 +14,7 @@ use ratatui::{DefaultTerminal, Frame};
 use chef::import::import_skill;
 use chef::item::{self, PantryEntry};
 
+use crate::serve_ui;
 use crate::theme;
 
 const PREVIEW_CAP: usize = 12_000;
@@ -23,16 +24,18 @@ enum Kind {
     Skills,
     Rules,
     Extensions,
+    Serve,
 }
 
 impl Kind {
-    const ALL: [Kind; 3] = [Self::Skills, Self::Rules, Self::Extensions];
+    const ALL: [Kind; 4] = [Self::Skills, Self::Rules, Self::Extensions, Self::Serve];
 
     fn id(self) -> &'static str {
         match self {
             Self::Skills => "skills",
             Self::Rules => "rules",
             Self::Extensions => "extensions",
+            Self::Serve => "serve",
         }
     }
 
@@ -58,6 +61,8 @@ struct App {
     preview_md: bool,
     preview_scroll: u16,
     flash: String,
+    import_confirmation: Option<PantryEntry>,
+    serve: serve_ui::App,
 }
 
 impl App {
@@ -71,12 +76,17 @@ impl App {
             preview_md: false,
             preview_scroll: 0,
             flash: String::new(),
+            import_confirmation: None,
+            serve: serve_ui::App::new(None)?,
         };
         app.reload()?;
         Ok(app)
     }
 
     fn reload(&mut self) -> Result<()> {
+        if self.kind == Kind::Serve {
+            return Ok(());
+        }
         let keep = self
             .list
             .selected()
@@ -124,6 +134,14 @@ impl App {
             self.flash = "already in pantry".into();
             return Ok(());
         }
+        self.import_confirmation = Some(entry);
+        Ok(())
+    }
+
+    fn confirm_import(&mut self) -> Result<()> {
+        let Some(entry) = self.import_confirmation.take() else {
+            return Ok(());
+        };
         match import_skill(&entry.name, &entry.root, &entry.location, false, true) {
             Ok(result) => {
                 self.flash = if result.relinked.is_some() {
@@ -184,11 +202,41 @@ impl App {
         if key.kind != KeyEventKind::Press {
             return Ok(false);
         }
+        // Import confirmation is modal: no tab switching, no quit while open.
+        if self.import_confirmation.is_some() {
+            match key.code {
+                KeyCode::Char('y') | KeyCode::Char('Y') => self.confirm_import()?,
+                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc
+                | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                    self.import_confirmation = None;
+                    self.flash = "import cancelled".into();
+                }
+                _ => {}
+            }
+            return Ok(false);
+        }
+        // Serve tab owns everything except tab navigation and quit; its own
+        // prompt/confirmation stay modal, so typing `q` there must not quit.
+        if self.kind == Kind::Serve {
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Char('Q')
+                    if !self.serve.busy() => return Ok(true),
+                KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
+                    self.set_kind(self.kind.next())?;
+                }
+                KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') => {
+                    self.set_kind(self.kind.prev())?;
+                }
+                _ => return self.serve.handle(key),
+            }
+            return Ok(false);
+        }
         if !matches!(key.code, KeyCode::Char('i') | KeyCode::Char('I')) {
             self.flash.clear();
         }
         match key.code {
-            KeyCode::Char('q') => return Ok(true),
+            KeyCode::Char('q') | KeyCode::Char('Q') => return Ok(true),
+            KeyCode::Char('p') | KeyCode::Char('P') => self.set_kind(Kind::Serve)?,
             KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
                 self.set_kind(self.kind.next())?;
             }
@@ -213,12 +261,12 @@ impl App {
 
 pub fn run() -> Result<()> {
     let mut terminal = ratatui::init();
-    let result = run_app(&mut terminal);
+    let result = run_with_terminal(&mut terminal);
     ratatui::restore();
-    result
+    result.map(|_| ())
 }
 
-fn run_app(terminal: &mut DefaultTerminal) -> Result<()> {
+pub fn run_with_terminal(terminal: &mut DefaultTerminal) -> Result<bool> {
     let mut app = App::new()?;
     loop {
         terminal.draw(|frame| draw(frame, &mut app))?;
@@ -227,14 +275,17 @@ fn run_app(terminal: &mut DefaultTerminal) -> Result<()> {
         }
         if let Event::Key(key) = event::read()? {
             if app.handle(key)? {
-                break;
+                return Ok(true);
             }
         }
     }
-    Ok(())
 }
 
 fn draw(frame: &mut Frame, app: &mut App) {
+    if app.kind == Kind::Serve {
+        serve_ui::draw(frame, &mut app.serve);
+        return;
+    }
     let area = frame.area();
     let inner = Rect {
         x: area.x.saturating_add(2),
@@ -260,23 +311,45 @@ fn draw(frame: &mut Frame, app: &mut App) {
             truncate(&app.flash, 100),
             Style::default().fg(theme::heat()),
         ))
-    } else if app.all_sources && app.kind == Kind::Skills {
-        Line::from(Span::styled(
-            "[TAB]:Kind  [J/K]:Move  [A]:Sources  [I]:Import  [PGUP/DN]:Preview  [Q]:Quit  ·  [k]repo  [a]other",
-            Style::default().fg(theme::muted()),
-        ))
-    } else if app.all_sources {
-        Line::from(Span::styled(
-            "[TAB]:Kind  [J/K]:Move  [A]:Sources (all)  [PGUP/DN]:Preview  [Q]:Quit  ·  [k]repo  [a]other",
-            Style::default().fg(theme::muted()),
-        ))
     } else {
         Line::from(Span::styled(
-            "[TAB]:Kind  [J/K]:Move  [A]:Sources (repo)  [PGUP/DN]:Preview  [Q]:Quit",
+            "[h/l]:tab  [j/k]:move  [p]:serve  [a]:sources  [i]:import  [pgup/dn]:preview  [q]:quit",
             Style::default().fg(theme::muted()),
         ))
     };
     frame.render_widget(Paragraph::new(help), chunks[2]);
+
+    if let Some(entry) = &app.import_confirmation {
+        draw_import_confirmation(frame, entry.name.as_str());
+    }
+}
+
+fn draw_import_confirmation(frame: &mut Frame, name: &str) {
+    let area = frame.area();
+    let width = 62.min(area.width.saturating_sub(4));
+    let height = 9.min(area.height.saturating_sub(2));
+    let popup = Rect {
+        x: area.x + area.width.saturating_sub(width) / 2,
+        y: area.y + area.height.saturating_sub(height) / 2,
+        width,
+        height,
+    };
+    let text = format!(
+        "Import {name:?} into kitchen?\n\nThis copies the skill, then replaces its original\nsource directory with a symlink to kitchen.\n\n[Y] Continue  [N/Esc/Q] Cancel"
+    );
+    frame.render_widget(Clear, popup);
+    frame.render_widget(
+        Paragraph::new(text)
+            .block(
+                Block::bordered()
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(theme::heat()))
+                    .title(" Confirm import ")
+                    .title_style(theme::ink_bold()),
+            )
+            .style(theme::ink()),
+        popup,
+    );
 }
 
 fn draw_tabs(frame: &mut Frame, app: &App, area: Rect) {
@@ -287,7 +360,7 @@ fn draw_tabs(frame: &mut Frame, app: &App, area: Rect) {
             Block::bordered()
                 .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(theme::heat()))
-                .title(" SLOP ")
+                .title(" CHEF ")
                 .title_style(theme::ink_bold()),
         )
         .style(Style::default().fg(theme::muted()))
@@ -364,7 +437,7 @@ fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
     if width == 0 || height == 0 {
         return;
     }
-    let rows = if app.preview_md {
+    let mut rows = if app.preview_md {
         crate::markdown::render(&app.preview, width)
     } else {
         visual_rows(&app.preview, width)
@@ -372,6 +445,16 @@ fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
             .map(Line::from)
             .collect()
     };
+    if let Some(entry) = app.list.selected().and_then(|i| app.entries.get(i)) {
+        rows.insert(
+            0,
+            Line::from(Span::styled(
+                format!("location: {}", entry.root.display()),
+                Style::default().fg(theme::muted()),
+            )),
+        );
+        rows.insert(1, Line::from(""));
+    }
     let max_scroll = rows.len().saturating_sub(height);
     let start = (app.preview_scroll as usize).min(max_scroll);
     let mut visible: Vec<Line> = rows.into_iter().skip(start).take(height).collect();
@@ -455,6 +538,7 @@ fn empty_kind_msg(kind: Kind, all_sources: bool) -> &'static str {
         (Kind::Rules, true) => "no rules found",
         (Kind::Extensions, false) => "no extensions in pantry",
         (Kind::Extensions, true) => "no extensions found",
+        (Kind::Serve, _) => "select harness to manage links",
     }
 }
 
@@ -485,14 +569,15 @@ mod tests {
     }
 
     #[test]
-    fn kind_cycles_all_three() {
+    fn kind_cycles_all_four() {
         let mut k = Kind::Skills;
         for expected in Kind::ALL {
             assert_eq!(k, expected);
             k = k.next();
         }
         assert_eq!(k, Kind::Skills);
-        assert_eq!(Kind::Skills.prev(), Kind::Extensions);
-        assert_eq!(Kind::Extensions.next(), Kind::Skills);
+        assert_eq!(Kind::Skills.prev(), Kind::Serve);
+        assert_eq!(Kind::Extensions.next(), Kind::Serve);
+        assert_eq!(Kind::Serve.next(), Kind::Skills);
     }
 }

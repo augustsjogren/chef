@@ -5,20 +5,21 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Paragraph};
+use ratatui::widgets::{Block, BorderType, Clear, List, ListItem, ListState, Paragraph, Tabs};
 use ratatui::{DefaultTerminal, Frame};
 
 use chef::config::{expand_path, Harness};
 use chef::item::{classify, items_for, Item, LinkState};
+use chef::load_harnesses;
 use chef::ops::{link_item, unlink_item};
-use chef::{load_harnesses, pantry_root, tool_root};
 
 use crate::theme;
 
 #[derive(Clone, Copy)]
+#[derive(PartialEq, Eq)]
 enum Screen {
     Harnesses,
     Items,
@@ -30,7 +31,7 @@ struct Row {
     state: LinkState,
 }
 
-struct App {
+pub struct App {
     harnesses: Vec<Harness>,
     harness_idx: usize,
     harness_list: ListState,
@@ -43,10 +44,11 @@ struct App {
     prompt: String,
     prompt_return: Screen,
     flash: String,
+    unlink_confirmation: bool,
 }
 
 impl App {
-    fn new(project: Option<PathBuf>) -> Result<Self> {
+    pub fn new(project: Option<PathBuf>) -> Result<Self> {
         let harnesses = load_harnesses()?;
         let mut harness_list = ListState::default();
         harness_list.select(Some(0));
@@ -63,6 +65,7 @@ impl App {
             prompt: String::new(),
             prompt_return: Screen::Harnesses,
             flash: String::new(),
+            unlink_confirmation: false,
         })
     }
 
@@ -115,12 +118,20 @@ impl App {
     }
 
     fn apply_link(&mut self) -> Result<()> {
+        if self.selected.is_empty() {
+            self.flash = "select items first; a selects all".into();
+            return Ok(());
+        }
         let keys = self.keys_for(LinkState::Missing);
         self.run_on(&keys, |item| link_item(item).to_string())?;
         Ok(())
     }
 
     fn apply_unlink(&mut self) -> Result<()> {
+        if self.selected.is_empty() {
+            self.flash = "select items first; a selects all".into();
+            return Ok(());
+        }
         let keys = self.keys_for(LinkState::Linked);
         self.run_on(&keys, |item| unlink_item(item).to_string())?;
         Ok(())
@@ -169,12 +180,17 @@ impl App {
     }
 
     fn select_all(&mut self) {
-        self.selected = self
+        let selectable: HashSet<String> = self
             .items
             .iter()
             .filter(|r| r.state.selectable())
             .map(|r| r.item.key())
             .collect();
+        if !selectable.is_empty() && self.selected == selectable {
+            self.selected.clear();
+        } else {
+            self.selected = selectable;
+        }
     }
 
     fn commit_project(&mut self) -> Result<()> {
@@ -195,11 +211,31 @@ impl App {
         }
     }
 
-    fn handle(&mut self, key: KeyEvent) -> Result<bool> {
+    /// Modal input in progress: keys typed here are content, not commands.
+    pub fn busy(&self) -> bool {
+        self.unlink_confirmation || self.screen == Screen::ProjectPrompt
+    }
+
+    pub fn handle(&mut self, key: KeyEvent) -> Result<bool> {
         if key.kind != KeyEventKind::Press {
             return Ok(false);
         }
         self.flash.clear();
+        if self.unlink_confirmation {
+            match key.code {
+                KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    self.unlink_confirmation = false;
+                    self.apply_unlink()?;
+                }
+                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc
+                | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                    self.unlink_confirmation = false;
+                    self.flash = "unlink cancelled".into();
+                }
+                _ => {}
+            }
+            return Ok(false);
+        }
         match self.screen {
             Screen::ProjectPrompt => match key.code {
                 KeyCode::Esc => {
@@ -242,8 +278,16 @@ impl App {
                 KeyCode::Down | KeyCode::Char('j') => self.select_item(self.item_idx + 1),
                 KeyCode::Char(' ') => self.toggle(),
                 KeyCode::Char('a') => self.select_all(),
-                KeyCode::Char('l') => self.apply_link()?,
-                KeyCode::Char('u') => self.apply_unlink()?,
+                KeyCode::Char('w') => self.apply_link()?,
+                KeyCode::Char('u') => {
+                    if self.selected.is_empty() {
+                        self.flash = "select items first; a selects all".into();
+                    } else if self.keys_for(LinkState::Linked).is_empty() {
+                        self.flash = "nothing to unlink".into();
+                    } else {
+                        self.unlink_confirmation = true;
+                    }
+                }
                 _ => {}
             },
         }
@@ -253,65 +297,73 @@ impl App {
 
 pub fn run(project: Option<PathBuf>) -> Result<()> {
     let mut terminal = ratatui::init();
-    let result = run_app(&mut terminal, project);
+    let _ = run_with_terminal(&mut terminal, project)?;
     ratatui::restore();
-    result
+    Ok(())
 }
 
-fn run_app(terminal: &mut DefaultTerminal, project: Option<PathBuf>) -> Result<()> {
+pub fn run_with_terminal(terminal: &mut DefaultTerminal, project: Option<PathBuf>) -> Result<bool> {
     let mut app = App::new(project)?;
     loop {
         terminal.draw(|frame| draw(frame, &mut app))?;
         if let Event::Key(key) = event::read()? {
-            if app.handle(key)? {
-                break;
+            if matches!(
+                key.code,
+                KeyCode::Tab | KeyCode::Char('1') | KeyCode::Char('p') | KeyCode::Char('P')
+            ) {
+                return Ok(true);
             }
+            if key.code == KeyCode::Char('q') {
+                return Ok(false);
+            }
+            app.handle(key)?;
         }
     }
-    Ok(())
 }
 
-fn draw(frame: &mut Frame, app: &mut App) {
-    let inner = Layout::vertical([Constraint::Percentage(100)])
-        .margin(2)
-        .split(frame.area())[0];
+pub fn draw(frame: &mut Frame, app: &mut App) {
+    let area = frame.area();
+    let inner = Rect {
+        x: area.x.saturating_add(2),
+        y: area.y,
+        width: area.width.saturating_sub(4),
+        height: area.height.saturating_sub(2),
+    };
     let chunks = Layout::vertical([
-        Constraint::Length(4),
+        Constraint::Length(3),
         Constraint::Min(5),
         Constraint::Length(1),
     ])
     .split(inner);
 
-    let project = match &app.project {
-        Some(p) => p.display().to_string(),
-        None => "(none — press p)".into(),
-    };
-    frame.render_widget(
-        Paragraph::new(vec![
-            Line::from(Span::styled(" SERVE ", theme::ink_bold())),
-            Line::from(Span::styled(
-                format!("pantry: {}", pantry_root().display()),
-                Style::default().fg(theme::muted()),
-            )),
-            Line::from(Span::styled(
-                format!("tool: {}", tool_root().display()),
-                Style::default().fg(theme::muted()),
-            )),
-            Line::from(Span::styled(
-                format!("project: {project}"),
-                Style::default().fg(theme::muted()),
-            )),
-        ])
-        .block(
-            Block::bordered()
-                .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(theme::muted())),
-        ),
-        chunks[0],
-    );
+    let tabs = Tabs::new(vec![
+        Line::from("skills"),
+        Line::from("rules"),
+        Line::from("extensions"),
+        Line::from("serve"),
+    ])
+    .block(
+        Block::bordered()
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(theme::heat()))
+            .title(" CHEF ")
+            .title_style(theme::ink_bold()),
+    )
+    .style(Style::default().fg(theme::muted()))
+    .highlight_style(
+        Style::default()
+            .fg(theme::heat())
+            .add_modifier(Modifier::BOLD | Modifier::REVERSED),
+    )
+    .select(3)
+    .divider("│")
+    .padding(" ", " ");
+    frame.render_widget(tabs, chunks[0]);
 
     match app.screen {
         Screen::Harnesses => {
+            let cols = Layout::horizontal([Constraint::Percentage(38), Constraint::Percentage(62)])
+                .split(chunks[1]);
             let items: Vec<ListItem> = app
                 .harnesses
                 .iter()
@@ -333,9 +385,45 @@ fn draw(frame: &mut Frame, app: &mut App) {
                         .title_style(theme::ink_bold()),
                 )
                 .highlight_style(theme::highlight());
-            frame.render_stateful_widget(list, chunks[1], &mut app.harness_list);
+            frame.render_stateful_widget(list, cols[0], &mut app.harness_list);
+
+            let harness = app.current_harness();
+            let project = app
+                .project
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "not configured".into());
+            let details = vec![
+                Line::from(Span::styled(harness.label.clone(), theme::ink_bold())),
+                Line::from(""),
+                Line::from(format!("Provides: {}", harness.kind_names())),
+                Line::from(format!(
+                    "Project harness: {}",
+                    if harness.project { "yes" } else { "no" }
+                )),
+                Line::from(format!("Project path: {project}")),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "Press ENTER to manage links.",
+                    Style::default().fg(theme::muted()),
+                )),
+            ];
+            frame.render_widget(
+                Paragraph::new(details)
+                    .block(
+                        Block::bordered()
+                            .border_type(BorderType::Rounded)
+                            .border_style(Style::default().fg(theme::muted()))
+                            .title(" DETAILS ")
+                            .title_style(theme::ink_bold()),
+                    )
+                    .style(theme::ink()),
+                cols[1],
+            );
         }
         Screen::Items => {
+            let cols = Layout::horizontal([Constraint::Percentage(38), Constraint::Percentage(62)])
+                .split(chunks[1]);
             let items: Vec<ListItem> = if app.items.is_empty() {
                 vec![ListItem::new(Span::styled(
                     "(no installable items)",
@@ -382,7 +470,38 @@ fn draw(frame: &mut Frame, app: &mut App) {
                         .title_style(theme::ink_bold()),
                 )
                 .highlight_style(theme::highlight());
-            frame.render_stateful_widget(list, chunks[1], &mut app.item_list);
+            frame.render_stateful_widget(list, cols[0], &mut app.item_list);
+
+            let details = app
+                .items
+                .get(app.item_idx)
+                .map(|row| {
+                    vec![
+                        Line::from(Span::styled(row.item.name.clone(), theme::ink_bold())),
+                        Line::from(""),
+                        Line::from(format!("Kind: {}", row.item.kind)),
+                        Line::from(format!("State: {}", row.state)),
+                        Line::from(""),
+                        Line::from(Span::styled("Source", theme::ink_bold())),
+                        Line::from(row.item.source.display().to_string()),
+                        Line::from(""),
+                        Line::from(Span::styled("Destination", theme::ink_bold())),
+                        Line::from(row.item.dest.display().to_string()),
+                    ]
+                })
+                .unwrap_or_else(|| vec![Line::from("No item selected")]);
+            frame.render_widget(
+                Paragraph::new(details)
+                    .block(
+                        Block::bordered()
+                            .border_type(BorderType::Rounded)
+                            .border_style(Style::default().fg(theme::muted()))
+                            .title(" DETAILS ")
+                            .title_style(theme::ink_bold()),
+                    )
+                    .style(theme::ink()),
+                cols[1],
+            );
         }
         Screen::ProjectPrompt => {
             frame.render_widget(
@@ -412,13 +531,34 @@ fn draw(frame: &mut Frame, app: &mut App) {
         ))
     };
     frame.render_widget(Paragraph::new(help), chunks[2]);
+
+    if app.unlink_confirmation {
+        let area = frame.area();
+        let width = 58.min(area.width.saturating_sub(4));
+        let height = 7.min(area.height.saturating_sub(2));
+        let popup = Rect {
+            x: area.x + area.width.saturating_sub(width) / 2,
+            y: area.y + area.height.saturating_sub(height) / 2,
+            width,
+            height,
+        };
+        frame.render_widget(Clear, popup);
+        frame.render_widget(
+            Paragraph::new("Unlink selected harness links?\n\nOnly destination symlinks are removed.\n[Y] Continue  [N/Esc/Q] Cancel")
+                .block(Block::bordered().border_type(BorderType::Rounded).title(" Confirm unlink ").title_style(theme::ink_bold()))
+                .style(theme::ink()),
+            popup,
+        );
+    }
 }
 
 fn help_text(screen: &Screen) -> &'static str {
     match screen {
-        Screen::Harnesses => "[ENTER]:Open  [J/K]:Move  [P]:Project  [Q]:Quit",
-        Screen::Items => "[SPACE]:Toggle  [A]:All  [L]:Link  [U]:Unlink  [ESC]:Back  [Q]:Quit",
-        Screen::ProjectPrompt => "[ENTER]:Confirm  [ESC]:Cancel",
+        Screen::Harnesses => "[enter]:open  [j/k]:move  [p]:project  [h/l]:navigate  [q]:quit",
+        Screen::Items => {
+            "[space]:toggle  [a]:all  [w]:link  [u]:unlink  [esc]:back  [h/l]:navigate  [q]:quit"
+        }
+        Screen::ProjectPrompt => "[enter]:confirm  [esc]:cancel",
     }
 }
 
