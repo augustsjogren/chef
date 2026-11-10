@@ -22,7 +22,7 @@ Bring an appetite for terminal interfaces. The kitchen itself is optional; `chef
 - macOS or Linux
 - Git
 - Rust and Cargo ([install Rust with rustup](https://rustup.rs/))
-- Optional: Cursor, Claude, or Pi for `chef serve`
+- Optional: Cursor, Claude, Pi, or any tool reading `~/.agents/skills` for `chef serve`
 - Optional: Ollama or MLX for local-model commands
 
 ## Install
@@ -68,19 +68,25 @@ A typical first service looks like this:
 
 ```text
 $ chef status
-skills 42  rules 8  extensions 3
+skills 17  rules 2  extensions 1
 
-$ chef
-┌ pantry ───────────────────────────────────────────────┐
-│ skills                                                │
-│   review                                              │
-│   tdd                                                 │
-│   frontend-design                                     │
-└───────────────────────────────────────────────────────┘
+$ chef serve --dry-run link cursor-user
+skills/caveman: would link → /Users/you/.cursor/skills/caveman
+…
+
+$ chef serve sync
+skills/caveman: linked
+…
 
 $ chef serve
-linked kitchen into cursor-user, claude-user, pi-user
+cursor-user (cursor-user)
+  skills/caveman            linked     /Users/you/.cursor/skills/caveman
+  skills/caveman-compress   linked     /Users/you/.cursor/skills/caveman-compress
+  skills/chef               linked     /Users/you/.cursor/skills/chef
+  …
 ```
+
+`chef` then opens the browser: tabbed skills · rules · extensions · serve panes with a preview pane, `/` filtering, and confirmations before anything moves.
 
 The exact counts and harnesses depend on your `kitchen` repository. The TUI is the main dining room; CLI commands are the prep cooks making setup and linking scriptable.
 
@@ -95,7 +101,7 @@ The binary is **`chef`**. Running it without a subcommand opens the browse TUI. 
 | `chef import <name> --force` | Import and replace original source with a symlink |
 | `chef bootstrap` | Install meta-skills into a harness |
 | `chef serve` | Harness link report (agent-friendly; same as `chef serve status`) |
-| `chef serve --dry-run link --harness <id>` | Preview links without changing harness directories |
+| `chef serve --dry-run link <id>` | Preview links without changing harness directories |
 | `chef stove` | Manage local model servers |
 | `chef status` | Print kitchen counts |
 | `chef prep` | Rebuild and reinstall this CLI |
