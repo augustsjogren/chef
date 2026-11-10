@@ -383,6 +383,12 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                 prev_group = Some(group.clone());
                 if !same {
                     items.push(ListItem::new(""));
+                    items.push(ListItem::new(Span::styled(
+                        format!("── {} ──", capitalize(&group)),
+                        Style::default()
+                            .fg(theme::muted())
+                            .add_modifier(Modifier::ITALIC),
+                    )));
                 }
                 row_of_harness.push(items.len());
                 let tag = if h.project && app.project.is_none() {
@@ -574,6 +580,14 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     }
     if app.help {
         crate::pantry_ui::draw_help(frame);
+    }
+}
+
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+        None => String::new(),
     }
 }
 
