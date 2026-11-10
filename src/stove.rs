@@ -252,7 +252,7 @@ pub struct CatalogEntry {
     pub heat: Heat,
 }
 
-/// Models a chat client can pick. MLX always has at least the default path.
+/// Models the stove catalog offers. MLX always has at least the default path.
 /// Ollama appears only while that burner is simmering (never the face when cold).
 pub fn model_catalog() -> Result<Vec<CatalogEntry>> {
     let mut out = Vec::new();
