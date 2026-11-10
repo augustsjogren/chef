@@ -52,7 +52,10 @@ pub fn link_item(item: &Item) -> ActionResult {
 pub fn unlink_item(item: &Item) -> ActionResult {
     match classify(item) {
         LinkState::Missing => ActionResult::AlreadyMissing,
-        LinkState::Linked => match fs::remove_file(&item.dest) {
+        // Linked and Foreign are both symlinks; removing one never touches
+        // the target. Foreign removal is how a mis-pointed link is healed:
+        // unlink the old link, then link fresh from the kitchen.
+        LinkState::Linked | LinkState::Foreign => match fs::remove_file(&item.dest) {
             Ok(()) => ActionResult::Unlinked,
             Err(e) => ActionResult::Blocked(format!("unlink failed: {e}")),
         },

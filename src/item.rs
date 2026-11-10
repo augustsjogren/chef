@@ -42,8 +42,10 @@ impl LinkState {
         }
     }
 
+    /// Foreign links are selectable so they can be removed (unlinked) and
+    /// healed to a fresh kitchen link; link attempts on them report blocked.
     pub fn selectable(self) -> bool {
-        matches!(self, Self::Missing | Self::Linked)
+        matches!(self, Self::Missing | Self::Linked | Self::Foreign)
     }
 }
 
