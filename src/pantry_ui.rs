@@ -62,6 +62,7 @@ struct App {
     preview_scroll: u16,
     flash: String,
     import_confirmation: Option<PantryEntry>,
+    help: bool,
     serve: serve_ui::App,
 }
 
@@ -77,6 +78,7 @@ impl App {
             preview_scroll: 0,
             flash: String::new(),
             import_confirmation: None,
+            help: false,
             serve: serve_ui::App::new(None)?,
         };
         app.reload()?;
@@ -215,6 +217,15 @@ impl App {
             }
             return Ok(false);
         }
+        // `?` toggles help on any non-modal screen; while open, any other key closes.
+        if key.code == KeyCode::Char('?') {
+            self.help = !self.help;
+            return Ok(false);
+        }
+        if self.help {
+            self.help = false;
+            return Ok(false);
+        }
         // Serve tab owns everything except tab navigation and quit; its own
         // prompt/confirmation stay modal, so typing `q` there must not quit.
         if self.kind == Kind::Serve {
@@ -287,6 +298,9 @@ pub fn run_with_terminal(terminal: &mut DefaultTerminal) -> Result<bool> {
 fn draw(frame: &mut Frame, app: &mut App) {
     if app.kind == Kind::Serve {
         serve_ui::draw(frame, &mut app.serve);
+        if app.help {
+            draw_help(frame);
+        }
         return;
     }
     let area = frame.area();
@@ -325,6 +339,54 @@ fn draw(frame: &mut Frame, app: &mut App) {
     if let Some(entry) = &app.import_confirmation {
         draw_import_confirmation(frame, entry.name.as_str());
     }
+    if app.help {
+        draw_help(frame);
+    }
+}
+
+fn draw_help(frame: &mut Frame) {
+    let header = |t: &str| Line::from(Span::styled(t.to_string(), theme::ink_bold()));
+    let keys = |t: &str| Line::from(Span::styled(t.to_string(), theme::ink()));
+    let lines = vec![
+        header("NAVIGATION"),
+        keys("  h/l, Tab            switch tab (skills · rules · extensions · serve)"),
+        keys("  j/k, arrows         move selection"),
+        keys("  PgUp/PgDn           scroll preview"),
+        keys("  a                   toggle repo / all sources"),
+        header("IMPORT"),
+        keys("  i                   import selected skill (skills tab + all sources)"),
+        keys("  y / n, Esc, q       confirm / cancel import"),
+        header("SERVE TAB"),
+        keys("  Enter               open harness → manage its links"),
+        keys("  space / a           toggle / select all items"),
+        keys("  w                   link selected items"),
+        keys("  u                   unlink selected (asks first; also removes foreign links)"),
+        keys("  p                   set project path"),
+        keys("  Esc                 back"),
+        header("ANYWHERE"),
+        keys("  ?                   this help  (any key closes)"),
+        keys("  q                   quit"),
+    ];
+    let area = frame.area();
+    let width = 70.min(area.width.saturating_sub(4));
+    let height = (lines.len() as u16 + 2).min(area.height.saturating_sub(2));
+    let popup = Rect {
+        x: area.x + area.width.saturating_sub(width) / 2,
+        y: area.y + area.height.saturating_sub(height) / 2,
+        width,
+        height,
+    };
+    frame.render_widget(Clear, popup);
+    frame.render_widget(
+        Paragraph::new(lines).block(
+            Block::bordered()
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(theme::heat()))
+                .title(" CHEF HELP ")
+                .title_style(theme::ink_bold()),
+        ),
+        popup,
+    );
 }
 
 fn draw_import_confirmation(frame: &mut Frame, name: &str) {
