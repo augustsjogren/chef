@@ -108,6 +108,19 @@ The binary is **`chef`**. Running it without a subcommand opens the browse TUI. 
 
 ## The browse TUI
 
+<p align="center">
+  <img src="assets/tui-browse.png" width="495" alt="chef TUI: skills tab with preview" title="chef TUI: skills tab with preview">
+  <img src="assets/tui-filter.png" width="495" alt="chef TUI: / filtering" title="chef TUI: / filtering">
+</p>
+<p align="center">
+  <img src="assets/tui-serve.png" width="495" alt="chef TUI: harness picker" title="chef TUI: harness picker">
+  <img src="assets/tui-links.png" width="495" alt="chef TUI: link management with status row" title="chef TUI: link management">
+</p>
+<p align="center">
+  <img src="assets/tui-confirm.png" width="495" alt="chef TUI: import confirmation" title="chef TUI: import confirmation">
+  <img src="assets/tui-help.png" width="495" alt="chef TUI: ? help overlay" title="chef TUI: help overlay">
+</p>
+
 `chef` opens one screen with four tabs: **skills · rules · extensions · serve**. Press `?` for the full key list.
 
 - **Browse** `h/l`/`Tab` between tabs, `j/k` to move, `a` toggles repo-only vs. all sources, `PgUp/PgDn` scrolls the preview pane.
