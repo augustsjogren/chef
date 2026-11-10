@@ -90,25 +90,36 @@ The binary is **`chef`**. Running it without a subcommand opens the browse TUI. 
 
 | Command | What |
 |---|---|
-| `chef` / `chef pantry` | Browse skills, rules, and extensions |
+| `chef` / `chef pantry` | Browse and import kitchen content in one TUI |
 | `chef import <name> --keep-source` | Import an external skill and keep original copy |
 | `chef import <name> --force` | Import and replace original source with a symlink |
 | `chef bootstrap` | Install meta-skills into a harness |
-| `chef serve` | Preview/link kitchen content through the TUI; no crumbs left behind |
+| `chef serve` | Link/unlink kitchen content into harnesses (TUI) |
 | `chef serve --dry-run link --harness <id>` | Preview links without changing harness directories |
 | `chef stove` | Manage local model servers |
 | `chef chat` | Chat with a running local model |
 | `chef status` | Print kitchen counts |
 | `chef prep` | Rebuild and reinstall this CLI |
 
-The browse TUI supports `A` for all sources and `I` for import. Run `chef <command> --help` for options.
+## The browse TUI
+
+`chef` opens one screen with four tabs: **skills · rules · extensions · serve**. Press `?` for the full key list.
+
+- **Browse** `h/l`/`Tab` between tabs, `j/k` to move, `a` toggles repo-only vs. all sources, `PgUp/PgDn` scrolls the preview pane.
+- **Filter** with `/`, type to narrow the list live, `Esc` clears; the title shows the active pattern.
+- **Import** with `i` (skills tab + all sources): a `Y/N` popup confirms before a skill is copied into the kitchen and its external source replaced by a symlink.
+- **Serve tab** lists the harnesses from `harnesses/targets.json`, grouped by tool family. `Enter` opens a harness, `space`/`a` select items, and `w` links while `u` unlinks — both operate on the selection; the status row shows what would happen (`2 to link · 1 to unlink`). Unlink always asks first, and mis-pointed (foreign) links can be removed and healed with a fresh `w`.
+- Item rows carry a colored link status (`linked`, `unlinked`, `foreign`, `blocked`); `blocked` means a real file/directory occupies the destination path and chef refuses to overwrite it.
+- `q` quits. The serve TUI (`chef serve`) is the same screen with the serve tab focused; `chef serve sync`, `status`, and subcommands are non-interactive flakes of the same workflow — without the puns.
+
+Run `chef <command> --help` for CLI options.
 
 ## Personal assumptions
 
 This setup reflects one developer's workflow:
 
 - `kitchen` is a separate personal repository at `~/kitchen`.
-- Cursor, Claude, and Pi are the supported harness targets.
+- Cursor, Claude, Pi, and a generic `~/.agents/skills` directory are the harness targets.
 - Unix symlinks are preferred over duplicated skill files.
 - Local model workflows use Ollama, MLX, LM Studio, and Pi-specific scripts where configured.
 - `~/.chef/` is personal runtime state, not portable project configuration.

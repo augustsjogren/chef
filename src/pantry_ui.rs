@@ -63,6 +63,8 @@ struct App {
     flash: String,
     import_confirmation: Option<PantryEntry>,
     help: bool,
+    /// `/`-filter: Some while a filter is active; bool = typing in progress.
+    filter: Option<(String, bool)>,
     serve: serve_ui::App,
 }
 
@@ -79,6 +81,7 @@ impl App {
             flash: String::new(),
             import_confirmation: None,
             help: false,
+            filter: None,
             serve: serve_ui::App::new(None)?,
         };
         app.reload()?;
@@ -94,7 +97,10 @@ impl App {
             .selected()
             .and_then(|i| self.entries.get(i))
             .map(|e| e.name.clone());
-        self.entries = item::list_pantry(self.kind.id(), self.all_sources)?;
+        self.entries = apply_filter(
+            item::list_pantry(self.kind.id(), self.all_sources)?,
+            self.filter.as_ref(),
+        );
         let n = self.entries.len();
         if n == 0 {
             self.list.select(None);
@@ -158,6 +164,10 @@ impl App {
         Ok(())
     }
 
+    fn filter_typing(&self) -> bool {
+        matches!(self.filter, Some((_, true)))
+    }
+
     fn set_kind(&mut self, kind: Kind) -> Result<()> {
         self.kind = kind;
         self.list.select(Some(0));
@@ -218,12 +228,54 @@ impl App {
             return Ok(false);
         }
         // `?` toggles help on any non-modal screen; while open, any other key closes.
-        if key.code == KeyCode::Char('?') {
+        // While the `/`-filter is open, `?` is just a filter character.
+        if key.code == KeyCode::Char('?') && !self.filter_typing() {
             self.help = !self.help;
             return Ok(false);
         }
         if self.help {
             self.help = false;
+            // `?`-closed help still lets `/` open the filter right away.
+            if key.code == KeyCode::Char('/') && self.kind != Kind::Serve {
+                self.filter = Some((String::new(), true));
+            }
+            return Ok(false);
+        }
+        // `/`-filter: while typing, keys are content; Esc clears, Enter keeps.
+        if self.filter_typing() {
+            match key.code {
+                KeyCode::Esc => {
+                    self.filter = None;
+                    self.reload()?;
+                }
+                KeyCode::Enter => {
+                    if let Some((_, typing)) = self.filter.as_mut() {
+                        *typing = false;
+                    }
+                }
+                KeyCode::Backspace => {
+                    let mut drop_filter = false;
+                    if let Some((pat, _)) = self.filter.as_mut() {
+                        pat.pop();
+                        drop_filter = pat.is_empty();
+                    }
+                    if drop_filter {
+                        self.filter = None;
+                    }
+                    self.reload()?;
+                }
+                KeyCode::Char(c) => {
+                    if let Some((pat, _)) = self.filter.as_mut() {
+                        pat.push(c);
+                    }
+                    self.reload()?;
+                }
+                _ => {}
+            }
+            return Ok(false);
+        }
+        if key.code == KeyCode::Char('/') && self.kind != Kind::Serve {
+            self.filter = Some((String::new(), true));
             return Ok(false);
         }
         // Serve tab owns everything except tab navigation and quit; its own
@@ -440,6 +492,21 @@ fn draw_tabs(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(tabs, area);
 }
 
+/// `/`-filter: retain entries whose name contains the pattern (case-insensitive).
+fn apply_filter(entries: Vec<PantryEntry>, filter: Option<&(String, bool)>) -> Vec<PantryEntry> {
+    let Some((pat, _typing)) = filter else {
+        return entries;
+    };
+    let pat = pat.to_lowercase();
+    if pat.is_empty() {
+        return entries;
+    }
+    entries
+        .into_iter()
+        .filter(|e| e.name.to_lowercase().contains(&pat))
+        .collect()
+}
+
 fn list_item_for_entry(entry: &PantryEntry, all_sources: bool) -> ListItem<'static> {
     if !all_sources {
         return ListItem::new(entry.name.clone());
@@ -455,10 +522,18 @@ fn list_item_for_entry(entry: &PantryEntry, all_sources: bool) -> ListItem<'stat
 fn draw_kinds(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_widget(Clear, area);
     let scope = if app.all_sources { " · all" } else { "" };
-    let title = format!(" {}{} ", app.kind.id().to_uppercase(), scope);
+    let filter_part = match &app.filter {
+        Some((pat, true)) => format!(" · /{pat}▌ "),
+        Some((pat, false)) => format!(" · /{pat} "),
+        None => String::new(),
+    };
+    let title = format!(" {}{}{} ", app.kind.id().to_uppercase(), scope, filter_part);
     let items: Vec<ListItem> = if app.entries.is_empty() {
         vec![ListItem::new(Span::styled(
-            empty_kind_msg(app.kind, app.all_sources),
+            match &app.filter {
+                Some((_, _)) => "(no matches)".to_string(),
+                None => empty_kind_msg(app.kind, app.all_sources).to_string(),
+            },
             Style::default()
                 .fg(theme::muted())
                 .add_modifier(Modifier::ITALIC),

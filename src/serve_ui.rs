@@ -557,10 +557,16 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             Style::default().fg(theme::heat()),
         ))
     } else {
-        Line::from(Span::styled(
-            help_text(&app.screen),
-            Style::default().fg(theme::muted()),
-        ))
+        match pending_verdict(app) {
+            Some(verdict) => Line::from(Span::styled(
+                format!("{verdict} | {}", help_text(&app.screen)),
+                Style::default().fg(theme::sage()),
+            )),
+            None => Line::from(Span::styled(
+                help_text(&app.screen),
+                Style::default().fg(theme::muted()),
+            )),
+        }
     };
     frame.render_widget(Paragraph::new(help), chunks[2]);
 
@@ -603,6 +609,29 @@ fn family_desc(harness_id: &str) -> &'static str {
         "pi" => "Pi coding agent links into ~/.pi/agent.",
         "agents" => "Generic user-level skills dir shared by agent CLIs.",
         _ => "",
+    }
+}
+
+/// What pressing `w` / `u` would do right now: same target set as the
+/// apply fns (selection when non-empty, otherwise all matching items).
+/// None when there is nothing pending.
+fn pending_verdict(app: &App) -> Option<String> {
+    let rows: Vec<&Row> = if app.selected.is_empty() {
+        app.items.iter().collect()
+    } else {
+        app.items
+            .iter()
+            .filter(|r| app.selected.contains(&r.item.key()))
+            .collect()
+    };
+    let to_link = rows.iter().filter(|r| r.state == LinkState::Missing).count();
+    let to_unlink = rows
+        .iter()
+        .filter(|r| matches!(r.state, LinkState::Linked | LinkState::Foreign))
+        .count();
+    match (to_link, to_unlink) {
+        (0, 0) => None,
+        (l, u) => Some(format!("{l} to link · {u} to unlink")),
     }
 }
 
