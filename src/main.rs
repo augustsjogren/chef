@@ -229,6 +229,9 @@ fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>, dry_run: bool) -> Resu
             if !tty::stdin_is_tty() {
                 bail!("need a tty; try: chef serve status");
             }
+            if dry_run {
+                bail!("--dry-run only applies to link/unlink/sync; the interactive serve TUI changes nothing until you confirm");
+            }
             serve_ui::run(project)
         }
         Some(ServeCmd::Harnesses) => {
