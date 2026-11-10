@@ -1,7 +1,5 @@
 # chef
 
-<img src="assets/chef.png" alt="Pixel-art chef mascot" width="320">
-
 *Skills in, good code out.*
 
 <p align="center">
@@ -174,6 +172,10 @@ cargo test
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+
+<p align="center">
+  <img src="assets/chef.png" alt="Pixel-art chef mascot" width="320">
+</p>
 
 ## License
 
