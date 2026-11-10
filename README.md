@@ -97,7 +97,6 @@ The binary is **`chef`**. Running it without a subcommand opens the browse TUI. 
 | `chef serve` | Link/unlink kitchen content into harnesses (TUI) |
 | `chef serve --dry-run link --harness <id>` | Preview links without changing harness directories |
 | `chef stove` | Manage local model servers |
-| `chef chat` | Chat with a running local model |
 | `chef status` | Print kitchen counts |
 | `chef prep` | Rebuild and reinstall this CLI |
 
@@ -133,7 +132,7 @@ This setup reflects one developer's workflow:
 |---|---|---|
 | `CHEF_KITCHEN` | `~/kitchen` | Override kitchen location |
 
-Runtime state is stored in `~/.chef/`. This includes model state, logs, and chat transcripts. Kitchen content is not copied into this repository.
+Runtime state is stored in `~/.chef/`. This includes model state and logs. Kitchen content is not copied into this repository.
 
 ## Troubleshooting
 

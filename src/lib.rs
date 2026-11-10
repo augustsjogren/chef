@@ -1,7 +1,6 @@
-//! chef: pantry items, harness symlinks, stove, and chat.
+//! chef: pantry items, harness symlinks, and the stove.
 
 pub mod bootstrap;
-pub mod chat;
 pub mod config;
 pub mod import;
 pub mod item;

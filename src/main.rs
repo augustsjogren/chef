@@ -1,4 +1,3 @@
-mod chat_ui;
 mod markdown;
 mod pantry_ui;
 mod serve_ui;
@@ -24,8 +23,8 @@ use chef::stove::{cool, print_status, simmer, Burner};
 #[command(
     name = "chef",
     version,
-    about = "chef — browse kitchen, serve, stove, and chat.",
-    after_help = "Examples:\n  chef\n  chef bootstrap\n  chef stove\n  chef serve\n  chef chat\n  chef stove simmer mlx"
+    about = "chef — browse kitchen, serve, and stove.",
+    after_help = "Examples:\n  chef\n  chef bootstrap\n  chef stove\n  chef serve\n  chef stove simmer mlx"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -39,8 +38,6 @@ enum Cmd {
     /// Browse skills, rules, and extensions
     #[command(name = "pantry")]
     Pantry,
-    /// Plain chat with a local model on the stove
-    Chat,
     /// Print kitchen counts
     Status,
     /// Copy an external skill into kitchen
@@ -121,7 +118,6 @@ fn main() -> Result<()> {
     match cli.cmd {
         None => run_tui_named("chef", unified_ui::run),
         Some(Cmd::Pantry) => run_tui_named("chef pantry", pantry_ui::run),
-        Some(Cmd::Chat) => run_tui_named("chef chat", chat_ui::run),
         Some(Cmd::Prep) => prep(),
         Some(Cmd::Status) => print_pantry(),
         Some(Cmd::Import {

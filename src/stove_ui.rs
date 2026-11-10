@@ -1,4 +1,4 @@
-//! Local burners and the model catalog. Same stove as chat uses.
+//! Local burners and the model catalog. Feeds `chef stove simmer`.
 
 use std::time::Duration;
 

@@ -20,7 +20,7 @@ Prefer `edit` over full-file `write` when changing existing files.
 | CLI source | `src/` | Rust |
 | Harness adapters | `harnesses/` | Install paths in `targets.json` |
 | CI fixture | `testdata/pantry/` | Minimal skills for tests only |
-| Runtime state | `~/.chef/` | Stove + chat logs (not in git) |
+| Runtime state | `~/.chef/` | Stove logs (not in git) |
 
 ## chef CLI
 
@@ -30,7 +30,6 @@ chef            # browse ~/kitchen
 chef bootstrap
 chef serve
 chef stove
-chef chat
 chef prep
 ```
 

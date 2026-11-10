@@ -37,7 +37,7 @@ pub fn tool_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-/// Local runtime state (stove, chat logs) — not synced via dotfiles.
+/// Local runtime state (stove logs) — not synced via dotfiles.
 pub fn state_dir() -> PathBuf {
     expand_path("~/.chef")
 }
