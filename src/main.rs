@@ -112,7 +112,20 @@ enum StoveCmd {
     Cool { burner: String },
 }
 
+/// Default SIGPIPE handling kills agents that pipe chef output into `head` and
+/// friends with an ugly panic; restore the default terminate-on-pipe behavior.
+#[cfg(unix)]
+fn reset_sigpipe() {
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+}
+
+#[cfg(not(unix))]
+fn reset_sigpipe() {}
+
 fn main() -> Result<()> {
+    reset_sigpipe();
     let cli = Cli::parse();
     match cli.cmd {
         None => run_tui_named("chef", pantry_ui::run),
@@ -220,26 +233,19 @@ fn cargo(root: &std::path::Path, args: &[&str]) -> Result<()> {
 fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>, dry_run: bool) -> Result<()> {
     let project = project.map(|p| expand_path(&p.to_string_lossy()));
     match cmd {
-        None => {
-            if !tty::stdin_is_tty() {
-                bail!("need a tty; try: chef serve status");
+        // Bare `serve` is a CLI report: same output as `serve status`.
+        // Interactive linking lives in the `chef` TUI (serve tab).
+        None | Some(ServeCmd::Status) => {
+            for h in load_harnesses()? {
+                print_serve_status(&h, project.as_deref())?;
+                println!();
             }
-            if dry_run {
-                bail!("--dry-run only applies to link/unlink/sync; the interactive serve TUI changes nothing until you confirm");
-            }
-            serve_ui::run(project)
+            Ok(())
         }
         Some(ServeCmd::Harnesses) => {
             for h in load_harnesses()? {
                 let tag = if h.project { " [project]" } else { "" };
                 println!("{}\t{}{tag}", h.id, h.label);
-            }
-            Ok(())
-        }
-        Some(ServeCmd::Status) => {
-            for h in load_harnesses()? {
-                print_serve_status(&h, project.as_deref())?;
-                println!();
             }
             Ok(())
         }

@@ -4,12 +4,12 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, List, ListItem, ListState, Paragraph, Tabs};
-use ratatui::{DefaultTerminal, Frame};
+use ratatui::Frame;
 
 use chef::config::{expand_path, Harness};
 use chef::item::{classify, items_for, Item, LinkState};
@@ -307,25 +307,6 @@ impl App {
             },
         }
         Ok(false)
-    }
-}
-
-pub fn run(project: Option<PathBuf>) -> Result<()> {
-    let mut terminal = ratatui::init();
-    let result = run_with_terminal(&mut terminal, project);
-    ratatui::restore();
-    result.map(|_| ())
-}
-
-pub fn run_with_terminal(terminal: &mut DefaultTerminal, project: Option<PathBuf>) -> Result<bool> {
-    let mut app = App::new(project)?;
-    loop {
-        terminal.draw(|frame| draw(frame, &mut app))?;
-        if let Event::Key(key) = event::read()? {
-            if app.handle(key)? {
-                return Ok(true);
-            }
-        }
     }
 }
 
