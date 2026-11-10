@@ -367,18 +367,42 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         Screen::Harnesses => {
             let cols = Layout::horizontal([Constraint::Percentage(38), Constraint::Percentage(62)])
                 .split(chunks[1]);
-            let items: Vec<ListItem> = app
-                .harnesses
-                .iter()
-                .map(|h| {
-                    let tag = if h.project && app.project.is_none() {
-                        "  [needs project]"
-                    } else {
-                        ""
-                    };
-                    ListItem::new(format!("{}   {}{tag}", h.label, h.kind_names()))
-                })
-                .collect();
+            // Group rows by harness family (cursor, claude, …), with a small
+            // non-selectable header between families.
+            let mut items: Vec<ListItem> = Vec::with_capacity(app.harnesses.len() + 3);
+            let mut row_of_harness: Vec<usize> = Vec::with_capacity(app.harnesses.len());
+            let mut prev_group: Option<String> = None;
+            for h in &app.harnesses {
+                let group = h
+                    .id
+                    .split('-')
+                    .next()
+                    .unwrap_or(&h.id)
+                    .to_string();
+                let same = prev_group.as_deref() == Some(group.as_str());
+                prev_group = Some(group.clone());
+                if !same {
+                    items.push(ListItem::new(Span::styled(
+                        format!("── {} ──", capitalize(&group)),
+                        Style::default()
+                            .fg(theme::muted())
+                            .add_modifier(Modifier::ITALIC),
+                    )));
+                }
+                row_of_harness.push(items.len());
+                let tag = if h.project && app.project.is_none() {
+                    "  [needs project]"
+                } else {
+                    ""
+                };
+                items.push(ListItem::new(format!(
+                    "{}   {}{tag}",
+                    h.label,
+                    h.kind_names()
+                )));
+            }
+            app.harness_list
+                .select(Some(row_of_harness[app.harness_idx]));
             let list = List::new(items)
                 .block(
                     Block::bordered()
@@ -555,6 +579,14 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     }
     if app.help {
         crate::pantry_ui::draw_help(frame);
+    }
+}
+
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+        None => String::new(),
     }
 }
 

@@ -123,7 +123,30 @@ const TARGETS_JSON: &str = include_str!("../harnesses/targets.json");
 
 pub fn load_harnesses() -> Result<Vec<Harness>> {
     let file: TargetsFile = serde_json::from_str(TARGETS_JSON).context("parse targets.json")?;
-    Ok(file.harnesses)
+    let mut harnesses = file.harnesses;
+    sort_harnesses(&mut harnesses);
+    Ok(harnesses)
+}
+
+/// Group harnesses by family (id up to the first `-`, like `claude-user` and
+/// `claude-project` under `claude`), user-level before project-level inside
+/// each family. Families follow their first appearance in targets.json.
+fn sort_harnesses(harnesses: &mut [Harness]) {
+    let group_of = |id: &str| id.split('-').next().unwrap_or(id).to_string();
+    let mut groups: Vec<String> = Vec::new();
+    for h in harnesses.iter() {
+        let group = group_of(&h.id);
+        if !groups.contains(&group) {
+            groups.push(group);
+        }
+    }
+    harnesses.sort_by_key(|h| {
+        let pos = groups
+            .iter()
+            .position(|g| *g == group_of(&h.id))
+            .unwrap_or(usize::MAX);
+        (pos, h.project)
+    });
 }
 
 pub fn harness_by_id(id: &str) -> Result<Harness> {
