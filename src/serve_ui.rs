@@ -49,6 +49,7 @@ pub struct App {
     prompt: String,
     prompt_return: Screen,
     flash: String,
+    help: bool,
     unlink_confirmation: bool,
 }
 
@@ -70,6 +71,7 @@ impl App {
             prompt: String::new(),
             prompt_return: Screen::Harnesses,
             flash: String::new(),
+            help: false,
             unlink_confirmation: false,
         })
     }
@@ -218,11 +220,19 @@ impl App {
 
     /// Modal input in progress: keys typed here are content, not commands.
     pub fn busy(&self) -> bool {
-        self.unlink_confirmation || self.screen == Screen::ProjectPrompt
+        self.help || self.unlink_confirmation || self.screen == Screen::ProjectPrompt
     }
 
     pub fn handle(&mut self, key: KeyEvent) -> Result<bool> {
         if key.kind != KeyEventKind::Press {
+            return Ok(false);
+        }
+        if key.code == KeyCode::Char('?') && !self.unlink_confirmation {
+            self.help = !self.help;
+            return Ok(false);
+        }
+        if self.help {
+            self.help = false;
             return Ok(false);
         }
         self.flash.clear();
@@ -543,13 +553,16 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             popup,
         );
     }
+    if app.help {
+        crate::pantry_ui::draw_help(frame);
+    }
 }
 
 fn help_text(screen: &Screen) -> &'static str {
     match screen {
-        Screen::Harnesses => "[enter]:open  [j/k]:move  [p]:project  [q]:quit",
+        Screen::Harnesses => "[enter]:open  [j/k]:move  [p]:project  [?]:help  [q]:quit",
         Screen::Items => {
-            "[space]:toggle  [a]:all  [w]:link  [u]:unlink  [esc]:back  [j/k]:move  [q]:quit"
+            "[space]:toggle  [a]:all  [w]:link  [u]:unlink  [esc]:back  [j/k]:move  [?]:help  [q]:quit"
         }
         Screen::ProjectPrompt => "[enter]:confirm  [esc]:cancel",
     }

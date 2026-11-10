@@ -330,7 +330,7 @@ fn draw(frame: &mut Frame, app: &mut App) {
         ))
     } else {
         Line::from(Span::styled(
-            "[h/l]:tab  [j/k]:move  [p]:serve  [a]:sources  [i]:import  [pgup/dn]:preview  [q]:quit",
+            "[h/l]:tab  [j/k]:move  [p]:serve  [a]:sources  [i]:import  [pgup/dn]:preview  [?]:help  [q]:quit",
             Style::default().fg(theme::muted()),
         ))
     };
@@ -344,7 +344,7 @@ fn draw(frame: &mut Frame, app: &mut App) {
     }
 }
 
-fn draw_help(frame: &mut Frame) {
+pub fn draw_help(frame: &mut Frame) {
     let header = |t: &str| Line::from(Span::styled(t.to_string(), theme::ink_bold()));
     let keys = |t: &str| Line::from(Span::styled(t.to_string(), theme::ink()));
     let lines = vec![
@@ -360,7 +360,7 @@ fn draw_help(frame: &mut Frame) {
         keys("  Enter               open harness → manage its links"),
         keys("  space / a           toggle / select all items"),
         keys("  w                   link selected items"),
-        keys("  u                   unlink selected (asks first; also removes foreign links)"),
+        keys("  u                   unlink selected (asks first; also removes foreign)"),
         keys("  p                   set project path"),
         keys("  Esc                 back"),
         header("ANYWHERE"),
@@ -368,7 +368,7 @@ fn draw_help(frame: &mut Frame) {
         keys("  q                   quit"),
     ];
     let area = frame.area();
-    let width = 70.min(area.width.saturating_sub(4));
+    let width = 92.min(area.width.saturating_sub(4));
     let height = (lines.len() as u16 + 2).min(area.height.saturating_sub(2));
     let popup = Rect {
         x: area.x + area.width.saturating_sub(width) / 2,
