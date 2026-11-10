@@ -102,7 +102,14 @@ impl App {
             return Ok(());
         }
         self.reload_items()?;
-        self.selected.clear();
+        // Pre-check what is already served, so `a` + `w|u` acts on the real
+        // state and an already-linked harness opens fully ticked.
+        self.selected = self
+            .items
+            .iter()
+            .filter(|r| r.state == LinkState::Linked)
+            .map(|r| r.item.key())
+            .collect();
         self.select_item(0);
         self.screen = Screen::Items;
         Ok(())
