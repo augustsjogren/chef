@@ -4,6 +4,10 @@
 
 *Skills in, good code out.*
 
+<p align="center">
+  <img src="assets/tui-demo.gif" width="640" alt="navigating the chef TUI: filter, serve, manage links">
+</p>
+
 `chef` is a personal Rust CLI/TUI for browsing a skill pantry, importing skills, linking them into AI coding harnesses, and running local models. It is less “enterprise platform” and more “small kitchen where the mise en place is unusually well organized.” This repository is a showcase of one working setup, not an actively supported general-purpose product.
 
 Supported platforms: **macOS and Linux**. Windows is not currently supported because serving and importing use Unix symlinks and Unix process tools.
