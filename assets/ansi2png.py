@@ -5,15 +5,21 @@ import re
 from PIL import Image, ImageDraw, ImageFont
 
 COLS, ROWS = 132, 38
-CELL_W, CELL_H = 10, 17
-BG = (27, 31, 39)
-FG = (206, 212, 222)
-FG16 = {30: (90, 96, 106), 31: (205, 92, 80), 32: (138, 168, 122),
-        33: (232, 180, 90), 34: (110, 140, 180), 35: (180, 140, 200),
-        36: (120, 170, 180), 37: FG, 90: (120, 126, 134),
-        91: (215, 110, 95), 92: (160, 195, 140), 93: (245, 200, 120),
-        94: (140, 170, 210), 95: (200, 160, 220), 96: (150, 200, 210), 97: FG}
-ANSI_256 = [(224, 228, 236)] * 256
+CELL_W, CELL_H = 12, 20
+# Ghostty everforest-dark (matches the author terminal theme)
+BG = (45, 53, 59)      # #2d353b
+FG = (211, 198, 170)   # #d3c6aa
+RED = (230, 126, 128)  # #e67e80
+GREEN = (167, 192, 128)  # #a7c080
+YELLOW = (219, 188, 127)  # #dbbc7f
+BLUE = (127, 187, 179)   # #7fbbb3
+MAGENTA = (214, 153, 182)  # #d699b6
+CYAN = (131, 192, 146)   # #83c092
+MUTED = (133, 146, 137)  # #859289
+FG16 = {30: MUTED, 31: RED, 32: GREEN, 33: YELLOW, 34: BLUE, 35: MAGENTA,
+        36: CYAN, 37: FG, 90: MUTED, 91: RED, 92: GREEN, 93: YELLOW,
+        94: BLUE, 95: MAGENTA, 96: CYAN, 97: FG}
+ANSI_256 = [FG] * 256
 
 CSI = re.compile(r"\x1b\[([0-9;:]*)([a-zA-Z])")
 
@@ -79,7 +85,8 @@ def render(text, out):
 
     img = Image.new("RGB", (COLS * CELL_W, ROWS * CELL_H), BG)
     draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype("/System/Library/Fonts/SFNSMono.ttf", 13)
+    font = ImageFont.truetype(
+        "/Users/augustsjogren/Library/Fonts/FiraCodeNerdFontMono-Regular.ttf", 14)
     for (row, col), (gch, cng, cbg) in grid.items():
         x, y = col * CELL_W, row * CELL_H
         if cbg:
