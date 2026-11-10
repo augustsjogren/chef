@@ -119,7 +119,7 @@ impl App {
 
     fn import_selected(&mut self) -> Result<()> {
         if self.kind != Kind::Skills || !self.all_sources {
-            self.flash = "import: skills tab + all sources (A)".into();
+            self.flash = "import: skills tab + all sources (a)".into();
             return Ok(());
         }
         let Some(entry) = self
@@ -218,9 +218,12 @@ impl App {
         // Serve tab owns everything except tab navigation and quit; its own
         // prompt/confirmation stay modal, so typing `q` there must not quit.
         if self.kind == Kind::Serve {
+            if self.serve.busy() {
+                // Modal: no tab switching mid-prompt/confirmation.
+                return self.serve.handle(key);
+            }
             match key.code {
-                KeyCode::Char('q') | KeyCode::Char('Q')
-                    if !self.serve.busy() => return Ok(true),
+                KeyCode::Char('q') | KeyCode::Char('Q') => return Ok(true),
                 KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
                     self.set_kind(self.kind.next())?;
                 }
@@ -566,6 +569,14 @@ mod tests {
     #[test]
     fn expand_tabs_to_columns() {
         assert_eq!(expand_tabs("a\tb", 4), "a   b");
+    }
+
+    #[test]
+    fn tab_titles_match_kind_order() {
+        assert_eq!(serve_ui::TAB_SERVE_IDX, Kind::Serve.index());
+        for (title, kind) in serve_ui::TAB_TITLES.iter().zip(Kind::ALL) {
+            assert_eq!(*title, kind.id());
+        }
     }
 
     #[test]

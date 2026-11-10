@@ -31,6 +31,11 @@ struct Row {
     state: LinkState,
 }
 
+/// Single source of truth for the unifyable top bar; pantry_ui::Kind order
+/// and ids must match these.
+pub const TAB_TITLES: [&str; 4] = ["skills", "rules", "extensions", "serve"];
+pub const TAB_SERVE_IDX: usize = 3;
+
 pub struct App {
     harnesses: Vec<Harness>,
     harness_idx: usize,
@@ -297,9 +302,9 @@ impl App {
 
 pub fn run(project: Option<PathBuf>) -> Result<()> {
     let mut terminal = ratatui::init();
-    let _ = run_with_terminal(&mut terminal, project)?;
+    let result = run_with_terminal(&mut terminal, project);
     ratatui::restore();
-    Ok(())
+    result.map(|_| ())
 }
 
 pub fn run_with_terminal(terminal: &mut DefaultTerminal, project: Option<PathBuf>) -> Result<bool> {
@@ -307,16 +312,9 @@ pub fn run_with_terminal(terminal: &mut DefaultTerminal, project: Option<PathBuf
     loop {
         terminal.draw(|frame| draw(frame, &mut app))?;
         if let Event::Key(key) = event::read()? {
-            if matches!(
-                key.code,
-                KeyCode::Tab | KeyCode::Char('1') | KeyCode::Char('p') | KeyCode::Char('P')
-            ) {
+            if app.handle(key)? {
                 return Ok(true);
             }
-            if key.code == KeyCode::Char('q') {
-                return Ok(false);
-            }
-            app.handle(key)?;
         }
     }
 }
@@ -336,12 +334,8 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     ])
     .split(inner);
 
-    let tabs = Tabs::new(vec![
-        Line::from("skills"),
-        Line::from("rules"),
-        Line::from("extensions"),
-        Line::from("serve"),
-    ])
+    let tabs = Tabs::new(TAB_TITLES.map(Line::from))
+    .select(TAB_SERVE_IDX)
     .block(
         Block::bordered()
             .border_type(BorderType::Rounded)
@@ -355,7 +349,6 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             .fg(theme::heat())
             .add_modifier(Modifier::BOLD | Modifier::REVERSED),
     )
-    .select(3)
     .divider("│")
     .padding(" ", " ");
     frame.render_widget(tabs, chunks[0]);
@@ -554,9 +547,9 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
 
 fn help_text(screen: &Screen) -> &'static str {
     match screen {
-        Screen::Harnesses => "[enter]:open  [j/k]:move  [p]:project  [h/l]:navigate  [q]:quit",
+        Screen::Harnesses => "[enter]:open  [j/k]:move  [p]:project  [q]:quit",
         Screen::Items => {
-            "[space]:toggle  [a]:all  [w]:link  [u]:unlink  [esc]:back  [h/l]:navigate  [q]:quit"
+            "[space]:toggle  [a]:all  [w]:link  [u]:unlink  [esc]:back  [j/k]:move  [q]:quit"
         }
         Screen::ProjectPrompt => "[enter]:confirm  [esc]:cancel",
     }
