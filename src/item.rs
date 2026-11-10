@@ -167,6 +167,7 @@ fn pantry_roots(kind: &str) -> Vec<(&'static str, PathBuf)> {
         "skills" => {
             out.push(("cursor-user", expand_path("~/.cursor/skills")));
             out.push(("claude-user", expand_path("~/.claude/skills")));
+            out.push(("agents-user", expand_path("~/.agents/skills")));
             if let Ok(cwd) = std::env::current_dir() {
                 out.push(("cursor-project", cwd.join(".cursor/skills")));
                 out.push(("claude-project", cwd.join(".claude/skills")));

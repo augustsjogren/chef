@@ -24,6 +24,13 @@
       }
     },
     {
+      "id": "agents",
+      "label": "Agents",
+      "kinds": {
+        "skills": { "dir": "~/.agents/skills", "mode": "dir" }
+      }
+    },
+    {
       "id": "cursor-project",
       "label": "Cursor (project)",
       "project": true,
