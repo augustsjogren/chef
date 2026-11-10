@@ -35,7 +35,7 @@ pub enum LinkState {
 impl LinkState {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Missing => "missing",
+            Self::Missing => "unlinked",
             Self::Linked => "linked",
             Self::Foreign => "foreign",
             Self::Blocked => "blocked",
