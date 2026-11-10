@@ -102,14 +102,7 @@ impl App {
             return Ok(());
         }
         self.reload_items()?;
-        // Pre-check what is already served, so `a` + `w|u` acts on the real
-        // state and an already-linked harness opens fully ticked.
-        self.selected = self
-            .items
-            .iter()
-            .filter(|r| r.state == LinkState::Linked)
-            .map(|r| r.item.key())
-            .collect();
+        self.selected.clear();
         self.select_item(0);
         self.screen = Screen::Items;
         Ok(())
@@ -447,15 +440,15 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                             LinkState::Foreign => theme::muted(),
                         };
                         ListItem::new(Line::from(vec![
-                            Span::raw(format!(
-                                "[{mark}] {:<11} {:<28} ",
-                                row.item.kind, row.item.name
-                            )),
+                            // Columns: selection, link status, kind, name.
+                            // Status leads so it survives narrow panes; the
+                            // full destination lives in the DETAILS pane.
+                            Span::raw(format!("[{mark}] ")),
                             Span::styled(
-                                format!("{:<8}", row.state.as_str()),
+                                format!("{:<9}", row.state.as_str()),
                                 Style::default().fg(color),
                             ),
-                            Span::raw(format!(" {}", row.item.dest.display())),
+                            Span::raw(format!("{:<10} {}", row.item.kind, row.item.name)),
                         ]))
                     })
                     .collect()
