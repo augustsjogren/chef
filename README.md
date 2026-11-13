@@ -19,11 +19,30 @@ This repository is a personal project shared as a showcase, not a supported gene
 ## Requirements
 
 - macOS or Linux
-- Git
-- Rust and Cargo ([install Rust with rustup](https://rustup.rs/))
 - A kitchen: any folder with a `skills/` directory
+- To build from source: Git, plus Rust and Cargo ([install Rust with rustup](https://rustup.rs/))
 
 ## Install
+
+### Prebuilt binary
+
+Download the archive for your platform from the [latest release](https://github.com/augustsjogren/chef/releases/latest), then put `chef` on your `PATH`:
+
+| Platform | Archive |
+|---|---|
+| macOS, Apple Silicon | `chef-<version>-aarch64-apple-darwin.tar.gz` |
+| macOS, Intel | `chef-<version>-x86_64-apple-darwin.tar.gz` |
+| Linux, x86_64 | `chef-<version>-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux, ARM64 | `chef-<version>-aarch64-unknown-linux-gnu.tar.gz` |
+
+```bash
+tar -xzf chef-<version>-<target>.tar.gz
+install -m 755 chef-<version>-<target>/chef ~/.local/bin/chef   # any directory on your PATH
+```
+
+Each archive has a matching `.sha256` file. The binaries are not signed: if macOS blocks a browser-downloaded binary, run `xattr -d com.apple.quarantine ~/.local/bin/chef`.
+
+### From source
 
 Put on your terminal apron, clone this repository, and run the installer:
 
@@ -35,7 +54,7 @@ cd chef
 
 The installer builds `chef`, installs it through Cargo, and adds Cargo's bin directory to your shell startup file when needed. It does not install Rust or modify system packages. Use `./install --dry-run` to preview, or `--no-shell-modification` to leave your shell profile alone.
 
-Keep the clone around: `chef bootstrap` links skills bundled in it, and `chef prep` rebuilds from it.
+`chef prep` rebuilds and reinstalls from the clone after you change it.
 
 ## Quick start
 
@@ -110,7 +129,7 @@ Running `chef` without a subcommand opens the browse TUI. No reservation require
 | `chef serve link <id>` / `unlink <id>` | Link or unlink the kitchen in one harness |
 | `chef serve sync [<id>…]` | Link several harnesses in one pass |
 | `chef serve --dry-run …` | Preview changes without touching harness directories |
-| `chef prep` | Rebuild and reinstall `chef` from this repository |
+| `chef prep` | Rebuild and reinstall `chef` from a clone of this repository |
 
 Project harnesses (`cursor-project`, `claude-project`) also need `--project <path>`. Run `chef <command> --help` for every option.
 
