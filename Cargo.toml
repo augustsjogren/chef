@@ -2,10 +2,11 @@
 name = "chef"
 version = "0.1.0"
 edition = "2021"
-description = "chef — browse kitchen, serve, stove, and chat."
+description = "chef — browse kitchen, serve skills into AI harnesses, and run local models."
 license = "MIT"
 repository = "https://github.com/augustsjogren/chef"
 readme = "README.md"
+publish = false
 
 [[bin]]
 name = "chef"

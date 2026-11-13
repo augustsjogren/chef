@@ -29,9 +29,7 @@ Bring an appetite for terminal interfaces. The kitchen itself is optional; `chef
 
 ## Install
 
-First, put on your terminal apron:
-
-Clone this repository, then run the installer:
+Put on your terminal apron, clone this repository, and run the installer:
 
 ```bash
 git clone https://github.com/augustsjogren/chef.git
@@ -141,7 +139,7 @@ This setup reflects one developer's workflow:
 - `kitchen` is a separate personal repository at `~/kitchen`.
 - Cursor, Claude, Pi, and a generic `~/.agents/skills` directory are the harness targets.
 - Unix symlinks are preferred over duplicated skill files.
-- Local model workflows use Ollama, MLX, LM Studio, and Pi-specific scripts where configured.
+- Local model workflows use Ollama, MLX, and Pi-specific scripts where configured.
 - `~/.chef/` is personal runtime state, not portable project configuration.
 - Harness paths and model commands may need edits for another machine.
 
@@ -171,7 +169,7 @@ cargo clippy -- -D warnings
 cargo test
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+This is a personal project and is not accepting contributions. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 <p align="center">
   <img src="assets/chef.png" alt="Pixel-art chef mascot" width="320">
