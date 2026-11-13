@@ -1,6 +1,6 @@
 # Contributing
 
-`chef` is a personal project shared as a showcase. It is not accepting pull requests, and issues may go unanswered.
+`chef` is a personal project shared as a showcase. It is not accepting pull requests at the moment, and issues may go unanswered.
 
 You are welcome to fork it and adapt it to your own setup under the terms of the [MIT license](LICENSE).
 
