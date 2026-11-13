@@ -29,7 +29,7 @@ Prefer `edit` over full-file `write` when changing existing files.
 chef            # browse ~/kitchen
 chef bootstrap
 chef serve
-chef prep
+chef update
 ```
 
 Set `CHEF_KITCHEN` to override the default `~/kitchen` path.

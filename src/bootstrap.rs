@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 
@@ -18,6 +18,19 @@ const BOOTSTRAP_SKILL_FILES: [(&str, &str); 2] = [
     ),
 ];
 
+/// Write the embedded skills to `~/.chef/bootstrap/skills`, replacing older copies.
+/// Existing harness links point there, so they pick up the new content.
+pub fn write_bundled_skills() -> Result<PathBuf> {
+    let root = bootstrap_skills_dir();
+    for (name, body) in BOOTSTRAP_SKILL_FILES {
+        let dir = root.join(name);
+        fs::create_dir_all(&dir).with_context(|| format!("create {}", dir.display()))?;
+        let skill_md = dir.join("SKILL.md");
+        fs::write(&skill_md, body).with_context(|| format!("write {}", skill_md.display()))?;
+    }
+    Ok(root)
+}
+
 /// Write chef's embedded meta-skills under `~/.chef` and symlink them into a
 /// harness skill dir (e.g. `cursor-user`).
 pub fn bootstrap(harness_id: &str, project: Option<&Path>) -> Result<Vec<(String, ActionResult)>> {
@@ -29,13 +42,10 @@ pub fn bootstrap(harness_id: &str, project: Option<&Path>) -> Result<Vec<(String
         bail!("{harness_id} has no skills kind");
     }
     let dest_root = harness.dest_dir("skills", project)?;
-    let root = bootstrap_skills_dir();
+    let root = write_bundled_skills()?;
     let mut out = Vec::new();
-    for (name, body) in BOOTSTRAP_SKILL_FILES {
+    for name in BOOTSTRAP_SKILLS {
         let source = root.join(name);
-        fs::create_dir_all(&source).with_context(|| format!("create {}", source.display()))?;
-        let skill_md = source.join("SKILL.md");
-        fs::write(&skill_md, body).with_context(|| format!("write {}", skill_md.display()))?;
         let item = Item {
             kind: "skills".into(),
             name: name.to_string(),
