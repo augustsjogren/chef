@@ -19,7 +19,7 @@ Prefer `edit` over full-file `write` when changing existing files.
 |------|------|------|
 | CLI source | `src/` | Rust |
 | Harness adapters | `harnesses/` | Install paths in `targets.json` |
-| Bundled skills | `bootstrap/skills/` | `chef` + `chef-add-skill`, linked by `chef bootstrap` |
+| Bundled skills | `bootstrap/skills/` | `chef` + `chef-add-skill`, embedded in the binary; `chef bootstrap` writes them to `~/.chef/bootstrap/skills/` and links them |
 | CI fixture | `testdata/pantry/` | Minimal skills for tests only |
 
 ## chef CLI

@@ -65,9 +65,11 @@ fn bootstrap_links_bundled_skills_without_kitchen_copies() {
     for name in ["chef", "chef-add-skill"] {
         let link = home.join(".claude/skills").join(name);
         let target = std::fs::read_link(&link).unwrap();
-        assert!(
-            target.ends_with(format!("bootstrap/skills/{name}")),
-            "{target:?}"
-        );
+        // Skills are embedded in the binary and written under ~/.chef, so
+        // release builds work without a clone of this repository.
+        let expected = home.canonicalize().unwrap().join(".chef/bootstrap/skills");
+        assert_eq!(target, expected.join(name));
+        let body = std::fs::read_to_string(target.join("SKILL.md")).unwrap();
+        assert!(body.contains(&format!("name: {name}")));
     }
 }
