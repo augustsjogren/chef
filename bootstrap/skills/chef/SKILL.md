@@ -28,7 +28,7 @@ chef serve        # report kitchen links per harness
 chef status       # kitchen counts
 ```
 
-Run `./install` from the chef repo once if `chef` is not on PATH.
+If `chef` is not on PATH, install a release binary or run `./install` from a clone of the chef repo.
 
 ## Pantry
 

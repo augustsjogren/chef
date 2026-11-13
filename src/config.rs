@@ -39,9 +39,9 @@ pub fn missing_pantry_hint() -> Option<String> {
     ))
 }
 
-/// Skills shipped with chef for `chef bootstrap`.
+/// Where `chef bootstrap` writes its embedded skills before linking them.
 pub fn bootstrap_skills_dir() -> PathBuf {
-    tool_root().join("bootstrap/skills")
+    expand_path("~/.chef/bootstrap/skills")
 }
 
 /// chef CLI repo (harness adapters, built-in tool paths).
