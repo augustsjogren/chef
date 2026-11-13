@@ -218,8 +218,11 @@ impl App {
         if self.import_confirmation.is_some() {
             match key.code {
                 KeyCode::Char('y') | KeyCode::Char('Y') => self.confirm_import()?,
-                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc
-                | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                KeyCode::Char('n')
+                | KeyCode::Char('N')
+                | KeyCode::Esc
+                | KeyCode::Char('q')
+                | KeyCode::Char('Q') => {
                     self.import_confirmation = None;
                     self.flash = "import cancelled".into();
                 }

@@ -88,8 +88,12 @@ enum Cmd {
 enum ServeCmd {
     Status,
     Harnesses,
-    Link { harness: String },
-    Unlink { harness: String },
+    Link {
+        harness: String,
+    },
+    Unlink {
+        harness: String,
+    },
     /// Link every given harness (default: all non-project harnesses) in one pass
     Sync {
         /// Harness ids to link (default: all non-project harnesses)

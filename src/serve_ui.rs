@@ -18,8 +18,7 @@ use chef::ops::{link_item, unlink_item};
 
 use crate::theme;
 
-#[derive(Clone, Copy)]
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Screen {
     Harnesses,
     Items,
@@ -242,8 +241,11 @@ impl App {
                     self.unlink_confirmation = false;
                     self.apply_unlink()?;
                 }
-                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc
-                | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                KeyCode::Char('n')
+                | KeyCode::Char('N')
+                | KeyCode::Esc
+                | KeyCode::Char('q')
+                | KeyCode::Char('Q') => {
                     self.unlink_confirmation = false;
                     self.flash = "unlink cancelled".into();
                 }
@@ -326,22 +328,22 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     .split(inner);
 
     let tabs = Tabs::new(TAB_TITLES.map(Line::from))
-    .select(TAB_SERVE_IDX)
-    .block(
-        Block::bordered()
-            .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(theme::heat()))
-            .title(" CHEF ")
-            .title_style(theme::ink_bold()),
-    )
-    .style(Style::default().fg(theme::muted()))
-    .highlight_style(
-        Style::default()
-            .fg(theme::heat())
-            .add_modifier(Modifier::BOLD | Modifier::REVERSED),
-    )
-    .divider("│")
-    .padding(" ", " ");
+        .select(TAB_SERVE_IDX)
+        .block(
+            Block::bordered()
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(theme::heat()))
+                .title(" CHEF ")
+                .title_style(theme::ink_bold()),
+        )
+        .style(Style::default().fg(theme::muted()))
+        .highlight_style(
+            Style::default()
+                .fg(theme::heat())
+                .add_modifier(Modifier::BOLD | Modifier::REVERSED),
+        )
+        .divider("│")
+        .padding(" ", " ");
     frame.render_widget(tabs, chunks[0]);
 
     match app.screen {
@@ -354,12 +356,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             let mut row_of_harness: Vec<usize> = Vec::with_capacity(app.harnesses.len());
             let mut prev_group: Option<String> = None;
             for h in &app.harnesses {
-                let group = h
-                    .id
-                    .split('-')
-                    .next()
-                    .unwrap_or(&h.id)
-                    .to_string();
+                let group = h.id.split('-').next().unwrap_or(&h.id).to_string();
                 let same = prev_group.as_deref() == Some(group.as_str());
                 prev_group = Some(group.clone());
                 if !same {
@@ -605,7 +602,10 @@ fn pending_verdict(app: &App) -> Option<String> {
             .filter(|r| app.selected.contains(&r.item.key()))
             .collect()
     };
-    let to_link = rows.iter().filter(|r| r.state == LinkState::Missing).count();
+    let to_link = rows
+        .iter()
+        .filter(|r| r.state == LinkState::Missing)
+        .count();
     let to_unlink = rows
         .iter()
         .filter(|r| matches!(r.state, LinkState::Linked | LinkState::Foreign))
