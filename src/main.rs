@@ -71,8 +71,6 @@ enum Cmd {
         #[command(subcommand)]
         cmd: Option<ServeCmd>,
     },
-    /// Install persistent compact rendering for pi-fff
-    SyncPiFff,
     /// Run from repo source (`cargo run`) — no `chef prep` between edits
     Dev {
         /// Rebuild and rerun when sources change (needs `cargo install cargo-watch`)
@@ -135,7 +133,6 @@ fn main() -> Result<()> {
             project,
             cmd,
         }) => serve(project, cmd, dry_run),
-        Some(Cmd::SyncPiFff) => sync_pi_fff(),
         Some(Cmd::Dev { watch, args }) => dev(watch, args),
     }
 }
@@ -285,16 +282,6 @@ fn cmd_import(name: &str, from: Option<&str>, keep_source: bool, force: bool) ->
         println!("relinked {loc} → repo (no duplicate copy)");
     } else if keep_source {
         println!("kept original at {}", source.display());
-    }
-    Ok(())
-}
-
-fn sync_pi_fff() -> Result<()> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let script = root.join("scripts/sync-pi-fff.sh");
-    let status = std::process::Command::new("bash").arg(&script).status()?;
-    if !status.success() {
-        bail!("sync-pi-fff failed");
     }
     Ok(())
 }
