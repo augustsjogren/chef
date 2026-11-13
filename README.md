@@ -54,7 +54,7 @@ cd chef
 
 The installer builds `chef`, installs it through Cargo, and adds Cargo's bin directory to your shell startup file when needed. It does not install Rust or modify system packages. Use `./install --dry-run` to preview, or `--no-shell-modification` to leave your shell profile alone.
 
-`chef prep` rebuilds and reinstalls from the clone after you change it.
+Later, `chef update` pulls the clone, reinstalls `chef`, and refreshes its bundled skills. Run it after local changes too.
 
 ## Quick start
 
@@ -129,7 +129,7 @@ Running `chef` without a subcommand opens the browse TUI. No reservation require
 | `chef serve link <id>` / `unlink <id>` | Link or unlink the kitchen in one harness |
 | `chef serve sync [<id>…]` | Link several harnesses in one pass |
 | `chef serve --dry-run …` | Preview changes without touching harness directories |
-| `chef prep` | Rebuild and reinstall `chef` from a clone of this repository |
+| `chef update` | Pull this repository, reinstall `chef`, and refresh the bundled skills (clone installs only) |
 
 Project harnesses (`cursor-project`, `claude-project`) also need `--project <path>`. Run `chef <command> --help` for every option.
 
@@ -161,7 +161,7 @@ Claude (user) (claude-user)
 | `cursor-project` | `<project>/.cursor/skills` | `<project>/.cursor/rules` | |
 | `claude-project` | `<project>/.claude/skills` | | |
 
-These match one developer's machine. To add or change a harness, edit [`harnesses/targets.json`](harnesses/targets.json) and run `chef prep`. `chef` is intentionally opinionated: it has a favorite knife and strong feelings about mise en place.
+These match one developer's machine. To add or change a harness, edit [`harnesses/targets.json`](harnesses/targets.json) and run `chef update`. `chef` is intentionally opinionated: it has a favorite knife and strong feelings about mise en place.
 
 ## Configuration
 

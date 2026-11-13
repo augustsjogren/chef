@@ -73,3 +73,39 @@ fn bootstrap_links_bundled_skills_without_kitchen_copies() {
         assert!(body.contains(&format!("name: {name}")));
     }
 }
+
+#[test]
+fn refresh_skills_rewrites_bundled_skills_without_linking() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    let stale = home.join(".chef/bootstrap/skills/chef/SKILL.md");
+    std::fs::create_dir_all(stale.parent().unwrap()).unwrap();
+    std::fs::write(&stale, "stale").unwrap();
+
+    let output = chef()
+        .arg("refresh-skills")
+        .env("HOME", &home)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(std::fs::read_to_string(&stale)
+        .unwrap()
+        .contains("name: chef"));
+    assert!(home
+        .join(".chef/bootstrap/skills/chef-add-skill/SKILL.md")
+        .is_file());
+    assert!(!home.join(".cursor").exists());
+}
+
+#[test]
+fn help_lists_update_not_prep() {
+    let output = chef().arg("--help").output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("update"));
+    assert!(!stdout.contains("prep"));
+    assert!(!stdout.contains("refresh-skills"));
+}

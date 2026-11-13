@@ -11,7 +11,9 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 
 use chef::bootstrap;
-use chef::config::{expand_path, harness_by_id, load_harnesses, missing_pantry_hint, tool_root};
+use chef::config::{
+    expand_path, harness_by_id, is_tool_repo, load_harnesses, missing_pantry_hint, tool_root,
+};
 use chef::import::{find_external_skill, import_skill};
 use chef::item::{self, classify, items_for};
 use chef::ops::{link_item, unlink_item};
@@ -30,8 +32,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Mise en place: build this repo and install `chef` on PATH
-    Prep,
+    /// Pull this repository, reinstall `chef`, and refresh its bundled skills
+    Update,
+    /// Rewrite the bundled skills under ~/.chef (run by `chef update`)
+    #[command(hide = true)]
+    RefreshSkills,
     /// Browse skills, rules, and extensions
     #[command(name = "pantry")]
     Pantry,
@@ -71,7 +76,7 @@ enum Cmd {
         #[command(subcommand)]
         cmd: Option<ServeCmd>,
     },
-    /// Run from repo source (`cargo run`) — no `chef prep` between edits
+    /// Run from repo source (`cargo run`) — no `chef update` between edits
     Dev {
         /// Rebuild and rerun when sources change (needs `cargo install cargo-watch`)
         #[arg(long, short)]
@@ -117,7 +122,8 @@ fn main() -> Result<()> {
     match cli.cmd {
         None => run_tui_named("chef", pantry_ui::run),
         Some(Cmd::Pantry) => run_tui_named("chef pantry", pantry_ui::run),
-        Some(Cmd::Prep) => prep(),
+        Some(Cmd::Update) => update(),
+        Some(Cmd::RefreshSkills) => refresh_skills(),
         Some(Cmd::Status) => print_pantry(),
         Some(Cmd::Import {
             name,
@@ -144,13 +150,45 @@ fn run_tui_named(hint: &str, run: fn() -> Result<()>) -> Result<()> {
     run()
 }
 
-fn prep() -> Result<()> {
+fn update() -> Result<()> {
     let root = tool_root();
-    eprintln!("prep: {}", root.display());
-    cargo(&root, &["build"])?;
-    cargo(&root, &["install", "--path", ".", "--force"])?;
-    eprintln!("prep: `chef` is on PATH (need ~/.cargo/bin in PATH)");
-    eprintln!("prep: hacking? use `./dev` or `chef dev` — skips install");
+    if !is_tool_repo(&root) {
+        bail!(
+            "chef update needs a clone of the chef repository; \
+             for a release binary, download the latest release instead"
+        );
+    }
+    eprintln!("update: {}", root.display());
+    run(Command::new("git")
+        .arg("-C")
+        .arg(&root)
+        .args(["pull", "--ff-only"]))?;
+    cargo(&root, &["install", "--path", ".", "--locked", "--force"])?;
+    // This process still embeds the old skills; let the new binary write its own.
+    run(Command::new(cargo_bin_dir().join("chef")).arg("refresh-skills"))?;
+    eprintln!("update: done (hacking? `./dev` or `chef dev` skips the install)");
+    Ok(())
+}
+
+fn refresh_skills() -> Result<()> {
+    let root = bootstrap::write_bundled_skills()?;
+    eprintln!("refreshed bundled skills in {}", root.display());
+    Ok(())
+}
+
+fn cargo_bin_dir() -> PathBuf {
+    std::env::var_os("CARGO_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| expand_path("~/.cargo"))
+        .join("bin")
+}
+
+fn run(cmd: &mut Command) -> Result<()> {
+    let program = cmd.get_program().to_string_lossy().into_owned();
+    let status = cmd.status().with_context(|| format!("run {program}"))?;
+    if !status.success() {
+        bail!("{program} failed");
+    }
     Ok(())
 }
 

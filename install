@@ -130,7 +130,7 @@ main() {
   say "done. open a new terminal, then:"
   say "  chef"
   say ""
-  say "reinstall after pulling: chef prep"
+  say "update later: chef update"
 }
 
 main "$@"

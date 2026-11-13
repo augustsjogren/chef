@@ -80,7 +80,8 @@ fn is_pantry_root(dir: &Path) -> bool {
     dir.join("skills").is_dir()
 }
 
-fn is_tool_repo(dir: &Path) -> bool {
+/// True for a checkout of this repository (what `chef update` builds from).
+pub fn is_tool_repo(dir: &Path) -> bool {
     dir.join("Cargo.toml").is_file()
         && dir.join("harnesses/targets.json").is_file()
         && dir.join("src/lib.rs").is_file()
