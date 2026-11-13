@@ -21,8 +21,8 @@ Please do not include real credentials, private skill content, or personal paths
 Security-sensitive areas include:
 
 - filesystem writes, deletion, and symlink creation
-- subprocess and model-server management
-- handling of configuration and runtime logs
+- subprocess execution
+- handling of configuration
 - importing content from external directories
 
-This project does not provide or manage model-provider credentials. Check external harnesses and model runtimes separately.
+This project does not provide or manage model-provider credentials. Check external harnesses separately.

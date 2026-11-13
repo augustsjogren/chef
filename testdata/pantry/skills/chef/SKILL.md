@@ -1,6 +1,6 @@
 ---
 name: chef
-description: chef CLI — browse skills and rules on this machine, link pantry into Cursor/Claude/Pi, run local models. Use when the user mentions chef, pantry, serve, stove, or wants to view or install agent skills and rules.
+description: chef CLI — browse skills and rules on this machine, link pantry into Cursor/Claude/Pi. Use when the user mentions chef, pantry, serve, or wants to view or install agent skills and rules.
 disable-model-invocation: true
 ---
 
@@ -14,8 +14,6 @@ Local CLI for browsing and linking agent skills, rules, and extensions.
 chef              # pantry TUI — browse all skills/rules on this machine
 chef bootstrap    # install chef + chef-add-skill into Cursor (user)
 chef serve        # symlink repo pantry into a harness
-chef stove        # local model servers (MLX, Ollama)
-chef chat         # plain chat with a model on the stove
 ```
 
 Run `./install` once if `chef` is not on PATH.
@@ -52,16 +50,6 @@ Non-interactive:
 ```bash
 chef serve status
 chef serve link cursor-user
-```
-
-## Stove
-
-Local models without cloud APIs:
-
-```bash
-chef stove simmer mlx    # start MLX Qwen server
-chef stove cool mlx      # stop
-chef chat                # chat TUI
 ```
 
 ## Adding skills

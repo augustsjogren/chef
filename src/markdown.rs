@@ -930,13 +930,13 @@ mod tests {
 
     #[test]
     fn skill_table_not_raw_pipes() {
-        let md = include_str!("../testdata/pantry/skills/local-pi-qwen/SKILL.md");
+        let md = include_str!("../testdata/pantry/skills/chef-add-skill/SKILL.md");
         let t = trimmed(&render(md, 60));
         let blob = t.join("\n");
-        assert!(blob.contains("Model"));
-        assert!(blob.contains("Qwen3.5"));
+        assert!(blob.contains("Section"));
+        assert!(blob.contains("Pitfalls"));
         assert!(t.iter().any(|l| l.contains('│')));
         assert!(!blob.contains("|-------"));
-        assert!(!blob.contains("| Piece |"));
+        assert!(!blob.contains("| Section |"));
     }
 }

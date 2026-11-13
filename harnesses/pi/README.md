@@ -24,8 +24,6 @@ chef serve link pi
 
 Skills are symlinked into `~/.pi/agent/skills/`; extensions are symlinked into `~/.pi/agent/extensions/`. Restart Pi after skill changes; run `/reload` after extension changes.
 
-## Local Qwen stack
-
-MLX server on `:8080`, compaction, tool caps: [qwen-local.md](qwen-local.md).
+## Rules in other repos
 
 For Pi sessions in other repos, copy `rules/prefer-edit-over-write.md` into that project's `AGENTS.md` or install via a Pi package.

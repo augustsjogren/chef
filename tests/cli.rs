@@ -11,7 +11,6 @@ fn help_lists_commands() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("import"));
     assert!(stdout.contains("serve"));
-    assert!(stdout.contains("stove"));
 }
 
 #[test]

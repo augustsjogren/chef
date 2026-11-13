@@ -6,7 +6,7 @@
   <img src="assets/tui-demo.gif" width="640" alt="navigating the chef TUI: filter, serve, manage links">
 </p>
 
-`chef` is a personal Rust CLI/TUI for browsing a skill pantry, importing skills, linking them into AI coding harnesses, and running local models. It is less “enterprise platform” and more “small kitchen where the mise en place is unusually well organized.” This repository is a showcase of one working setup, not an actively supported general-purpose product.
+`chef` is a personal Rust CLI/TUI for browsing a skill pantry, importing skills, and linking them into AI coding harnesses. It is less “enterprise platform” and more “small kitchen where the mise en place is unusually well organized.” This repository is a showcase of one working setup, not an actively supported general-purpose product.
 
 Supported platforms: **macOS and Linux**. Windows is not currently supported because serving and importing use Unix symlinks and Unix process tools.
 
@@ -25,7 +25,6 @@ Bring an appetite for terminal interfaces. The kitchen itself is optional; `chef
 - Git
 - Rust and Cargo ([install Rust with rustup](https://rustup.rs/))
 - Optional: Cursor, Claude, Pi, or any tool reading `~/.agents/skills` for `chef serve`
-- Optional: Ollama or MLX for local-model commands
 
 ## Install
 
@@ -102,7 +101,6 @@ The binary is **`chef`**. Running it without a subcommand opens the browse TUI. 
 | `chef bootstrap` | Install meta-skills into a harness |
 | `chef serve` | Harness link report (agent-friendly; same as `chef serve status`) |
 | `chef serve --dry-run link <id>` | Preview links without changing harness directories |
-| `chef stove` | Manage local model servers |
 | `chef status` | Print kitchen counts |
 | `chef prep` | Rebuild and reinstall this CLI |
 
@@ -139,26 +137,23 @@ This setup reflects one developer's workflow:
 - `kitchen` is a separate personal repository at `~/kitchen`.
 - Cursor, Claude, Pi, and a generic `~/.agents/skills` directory are the harness targets.
 - Unix symlinks are preferred over duplicated skill files.
-- Local model workflows use Ollama, MLX, and Pi-specific scripts where configured.
-- `~/.chef/` is personal runtime state, not portable project configuration.
-- Harness paths and model commands may need edits for another machine.
+- Harness paths may need edits for another machine.
 
-`chef` is intentionally opinionated. It has a favorite knife and strong feelings about mise en place. Fork or adapt `harnesses/targets.json` and local-model configuration rather than expecting zero-configuration support for every environment.
+`chef` is intentionally opinionated. It has a favorite knife and strong feelings about mise en place. Fork or adapt `harnesses/targets.json` rather than expecting zero-configuration support for every environment.
 
-## Configuration and state
+## Configuration
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `CHEF_KITCHEN` | `~/kitchen` | Override kitchen location |
 
-Runtime state is stored in `~/.chef/`. This includes model state and logs. Kitchen content is not copied into this repository.
+Kitchen content is not copied into this repository.
 
 ## Troubleshooting
 
 - If `chef` is not found after installation, open a new shell or source your shell profile.
 - If no kitchen is found, clone `kitchen` to `~/kitchen` or set `CHEF_KITCHEN`.
 - If `chef serve` cannot create links, verify that destination directories are writable and that your platform supports Unix symlinks.
-- Local-model commands require their respective model runtime and binaries to be installed separately.
 - `chef import <name>` refuses destructive relinking unless you pass `--force` or choose `--keep-source`.
 
 ## Development
