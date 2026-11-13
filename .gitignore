@@ -7,10 +7,6 @@ node_modules/
 .venv/
 __pycache__/
 /target/
-.chef/state.json
-.chef/stove.json
-.chef/logs/
-.chef/chats/
 
 # Pix Agent
 .pi/

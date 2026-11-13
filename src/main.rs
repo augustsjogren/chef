@@ -1,7 +1,6 @@
 mod markdown;
 mod pantry_ui;
 mod serve_ui;
-mod stove_ui;
 mod theme;
 mod tty;
 
@@ -12,18 +11,17 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 
 use chef::bootstrap;
-use chef::config::{expand_path, harness_by_id, load_harnesses, tool_root};
+use chef::config::{expand_path, harness_by_id, load_harnesses, missing_pantry_hint, tool_root};
 use chef::import::{find_external_skill, import_skill};
 use chef::item::{self, classify, items_for};
 use chef::ops::{link_item, unlink_item};
-use chef::stove::{cool, print_status, simmer, Burner};
 
 #[derive(Parser)]
 #[command(
     name = "chef",
     version,
-    about = "chef — browse kitchen, serve, and stove.",
-    after_help = "Examples:\n  chef\n  chef bootstrap\n  chef stove\n  chef serve\n  chef stove simmer mlx"
+    about = "chef — browse kitchen and serve skills into harnesses.",
+    after_help = "Examples:\n  chef\n  chef bootstrap\n  chef serve"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -73,13 +71,6 @@ enum Cmd {
         #[command(subcommand)]
         cmd: Option<ServeCmd>,
     },
-    /// Install persistent compact rendering for pi-fff
-    SyncPiFff,
-    /// Local model servers on the stove (MLX, Ollama)
-    Stove {
-        #[command(subcommand)]
-        cmd: Option<StoveCmd>,
-    },
     /// Run from repo source (`cargo run`) — no `chef prep` between edits
     Dev {
         /// Rebuild and rerun when sources change (needs `cargo install cargo-watch`)
@@ -95,21 +86,17 @@ enum Cmd {
 enum ServeCmd {
     Status,
     Harnesses,
-    Link { harness: String },
-    Unlink { harness: String },
+    Link {
+        harness: String,
+    },
+    Unlink {
+        harness: String,
+    },
     /// Link every given harness (default: all non-project harnesses) in one pass
     Sync {
         /// Harness ids to link (default: all non-project harnesses)
         harnesses: Vec<String>,
     },
-}
-
-#[derive(Subcommand)]
-enum StoveCmd {
-    /// Bring a burner up to heat (start server)
-    Simmer { burner: String },
-    /// Take a burner off the heat (stop server)
-    Cool { burner: String },
 }
 
 /// Default SIGPIPE handling kills agents that pipe chef output into `head` and
@@ -146,8 +133,6 @@ fn main() -> Result<()> {
             project,
             cmd,
         }) => serve(project, cmd, dry_run),
-        Some(Cmd::SyncPiFff) => sync_pi_fff(),
-        Some(Cmd::Stove { cmd }) => stove(cmd),
         Some(Cmd::Dev { watch, args }) => dev(watch, args),
     }
 }
@@ -230,7 +215,14 @@ fn cargo(root: &std::path::Path, args: &[&str]) -> Result<()> {
     Ok(())
 }
 
+fn warn_missing_pantry() {
+    if let Some(hint) = missing_pantry_hint() {
+        eprintln!("{hint}");
+    }
+}
+
 fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>, dry_run: bool) -> Result<()> {
+    warn_missing_pantry();
     let project = project.map(|p| expand_path(&p.to_string_lossy()));
     match cmd {
         // Bare `serve` is a CLI report: same output as `serve status`.
@@ -272,6 +264,7 @@ fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>, dry_run: bool) -> Resu
 }
 
 fn print_pantry() -> Result<()> {
+    warn_missing_pantry();
     println!(
         "skills {}  rules {}  extensions {}",
         item::list_kind("skills")?.len(),
@@ -289,16 +282,6 @@ fn cmd_import(name: &str, from: Option<&str>, keep_source: bool, force: bool) ->
         println!("relinked {loc} → repo (no duplicate copy)");
     } else if keep_source {
         println!("kept original at {}", source.display());
-    }
-    Ok(())
-}
-
-fn sync_pi_fff() -> Result<()> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let script = root.join("scripts/sync-pi-fff.sh");
-    let status = std::process::Command::new("bash").arg(&script).status()?;
-    if !status.success() {
-        bail!("sync-pi-fff failed");
     }
     Ok(())
 }
@@ -337,26 +320,6 @@ fn print_serve_status(h: &chef::Harness, project: Option<&std::path::Path>) -> R
         );
     }
     Ok(())
-}
-
-fn stove(cmd: Option<StoveCmd>) -> Result<()> {
-    match cmd {
-        None => {
-            if tty::stdin_is_tty() {
-                stove_ui::run()
-            } else {
-                print_status()
-            }
-        }
-        Some(StoveCmd::Simmer { burner }) => {
-            println!("{}", simmer(Burner::parse(&burner)?)?);
-            Ok(())
-        }
-        Some(StoveCmd::Cool { burner }) => {
-            println!("{}", cool(Burner::parse(&burner)?)?);
-            Ok(())
-        }
-    }
 }
 
 fn apply(id: &str, project: Option<&std::path::Path>, link: bool, dry_run: bool) -> Result<()> {

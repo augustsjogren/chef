@@ -313,16 +313,16 @@ mod tests {
             "prefer-edit-over-write"
         );
         assert_eq!(
-            pantry_name("skills", Path::new("skills/local-pi-qwen")),
-            "local-pi-qwen"
+            pantry_name("skills", Path::new("skills/chef-add-skill")),
+            "chef-add-skill"
         );
     }
 
     #[test]
     fn skill_preview_is_skill_md() {
         assert_eq!(
-            preview_path("skills", Path::new("skills/local-pi-qwen")),
-            Path::new("skills/local-pi-qwen/SKILL.md")
+            preview_path("skills", Path::new("skills/chef-add-skill")),
+            Path::new("skills/chef-add-skill/SKILL.md")
         );
         assert_eq!(
             preview_path("rules", Path::new("rules/foo.md")),

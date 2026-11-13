@@ -1,17 +1,12 @@
 # Contributing
 
-Thanks for helping improve `chef`.
+`chef` is a personal project shared as a showcase. It is not accepting pull requests, and issues may go unanswered.
 
-## Before opening a change
-
-- Check existing issues and pull requests.
-- Keep changes focused.
-- Update README or command help when behavior changes.
-- Do not commit personal kitchen content, runtime state, model logs, or credentials.
+You are welcome to fork it and adapt it to your own setup under the terms of the [MIT license](LICENSE).
 
 ## Local checks
 
-Run from repository root:
+If you work on a fork, run these from the repository root:
 
 ```bash
 cargo fmt --check
@@ -20,12 +15,8 @@ cargo test
 cargo package --locked
 ```
 
-`chef` currently targets macOS and Linux. Changes involving symlinks, process management, harness paths, or local model runtimes should include platform notes and tests where practical.
+`chef` targets macOS and Linux.
 
-## Pull requests
+## Security
 
-Describe what changed, why, and how it was tested. Include screenshots for visible TUI changes. Keep generated files and unrelated formatting changes out of the pull request.
-
-## Reporting bugs
-
-Include OS, Rust version, `chef --version`, command arguments, relevant environment variables, and the complete error output. Remove private paths, skill content, tokens, and other sensitive data first.
+See [SECURITY.md](SECURITY.md) for reporting vulnerabilities privately.

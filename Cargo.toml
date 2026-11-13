@@ -2,10 +2,11 @@
 name = "chef"
 version = "0.1.0"
 edition = "2021"
-description = "chef — browse kitchen, serve, stove, and chat."
+description = "chef — browse kitchen and serve skills into AI harnesses."
 license = "MIT"
 repository = "https://github.com/augustsjogren/chef"
 readme = "README.md"
+publish = false
 
 [[bin]]
 name = "chef"
@@ -13,7 +14,6 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1"
-chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 clap = { version = "4", features = ["derive"] }
 crossterm = "0.28"
 pulldown-cmark = { version = "0.13", default-features = false }

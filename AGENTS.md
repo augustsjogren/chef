@@ -1,8 +1,8 @@
 # chef CLI
 
-Rust TUI/CLI for browsing [kitchen](https://github.com/augustsjogren/kitchen), linking into Cursor/Claude/Pi, and running local models.
+Rust TUI/CLI for browsing a kitchen (any folder with `skills/`) and linking it into Cursor/Claude/Pi.
 
-**Skills repo:** [augustsjogren/kitchen](https://github.com/augustsjogren/kitchen) at `~/kitchen` — see [KITCHEN.md](KITCHEN.md).
+**Kitchen:** the user's own skills folder at `~/kitchen` (or `CHEF_KITCHEN`) — see [KITCHEN.md](KITCHEN.md).
 
 | Name | What |
 |------|------|
@@ -19,8 +19,8 @@ Prefer `edit` over full-file `write` when changing existing files.
 |------|------|------|
 | CLI source | `src/` | Rust |
 | Harness adapters | `harnesses/` | Install paths in `targets.json` |
+| Bundled skills | `bootstrap/skills/` | `chef` + `chef-add-skill`, linked by `chef bootstrap` |
 | CI fixture | `testdata/pantry/` | Minimal skills for tests only |
-| Runtime state | `~/.chef/` | Stove logs (not in git) |
 
 ## chef CLI
 
@@ -29,7 +29,6 @@ Prefer `edit` over full-file `write` when changing existing files.
 chef            # browse ~/kitchen
 chef bootstrap
 chef serve
-chef stove
 chef prep
 ```
 
