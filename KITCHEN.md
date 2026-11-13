@@ -1,18 +1,36 @@
-# kitchen
+# Kitchen
 
-Personal skills, rules, and extensions repo. **Not** the CLI — that's [chef](README.md).
+The kitchen is your own folder of skills, rules, and extensions. `chef` browses it and links it into your harnesses. It is not part of this repository; keeping it in its own git repository works well.
 
-Browse it with **chef**: `chef` or `chef pantry`.
+## Location
 
-| What | Where |
-|------|-------|
-| Skills repo | [`augustsjogren/kitchen`](https://github.com/augustsjogren/kitchen) → clone to `~/kitchen` |
+`chef` uses the first match:
 
-```bash
-git clone git@github.com:augustsjogren/kitchen.git ~/kitchen
-export CHEF_KITCHEN="$HOME/kitchen"   # add to ~/.zshrc
-chef bootstrap
-chef serve
+1. `$CHEF_KITCHEN`
+2. `~/kitchen`
+3. A folder with `skills/` (or a `kitchen/` subfolder with one) found walking up from the current directory
+
+## Layout
+
+```text
+~/kitchen/
+  skills/<name>/SKILL.md   # required: one directory per skill
+  rules/<name>.md          # optional: Cursor rules
+  extensions/<name>.ts     # optional: Pi extensions
 ```
 
-Override anytime with `CHEF_KITCHEN`.
+Only `skills/` is required. An empty one is enough to start:
+
+```bash
+mkdir -p ~/kitchen/skills
+chef bootstrap
+chef
+```
+
+## Filling it
+
+- Write skills directly in `skills/<name>/SKILL.md`.
+- Import skills you already have in `~/.cursor/skills`, `~/.claude/skills`, or `~/.agents/skills`: `chef import <name>`, or press `i` in the TUI's all-sources view.
+- After solving a real problem, ask your agent to use the bundled `chef-add-skill` skill to capture it.
+
+`testdata/pantry` in this repository is a minimal sample kitchen.

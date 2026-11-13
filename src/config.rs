@@ -27,6 +27,23 @@ pub fn pantry_root() -> PathBuf {
     expand_path("~/kitchen")
 }
 
+/// Hint for the user when the kitchen has no `skills/` folder; `None` when it does.
+pub fn missing_pantry_hint() -> Option<String> {
+    let root = pantry_root();
+    if is_pantry_root(&root) {
+        return None;
+    }
+    Some(format!(
+        "no kitchen at {}: create a skills/ folder there or set CHEF_KITCHEN",
+        root.display()
+    ))
+}
+
+/// Skills shipped with chef for `chef bootstrap`.
+pub fn bootstrap_skills_dir() -> PathBuf {
+    tool_root().join("bootstrap/skills")
+}
+
 /// chef CLI repo (harness adapters, built-in tool paths).
 pub fn tool_root() -> PathBuf {
     if let Ok(cwd) = std::env::current_dir() {

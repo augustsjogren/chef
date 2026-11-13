@@ -10,16 +10,11 @@
 
 Supported platforms: **macOS and Linux**. Windows is not currently supported because serving and importing use Unix symlinks and Unix process tools.
 
-Skills do not live in this repository. They live in [kitchen](https://github.com/augustsjogren/kitchen), which `chef` discovers at `~/kitchen` by default. See [KITCHEN.md](KITCHEN.md).
-
-| Repository | Role |
-|---|---|
-| [augustsjogren/kitchen](https://github.com/augustsjogren/kitchen) | Skills, rules, and extensions |
-| [augustsjogren/chef](https://github.com/augustsjogren/chef) | CLI and TUI in this repository |
+Your skills do not live in this repository. They live in your own **kitchen**: any folder with a `skills/` directory, at `~/kitchen` by default. See [KITCHEN.md](KITCHEN.md) for the layout.
 
 ## Requirements
 
-Bring an appetite for terminal interfaces. The kitchen itself is optional; `chef` will tell you where to find one.
+Bring an appetite for terminal interfaces, and a kitchen. If `chef` can't find one, it tells you where it looked.
 
 - macOS or Linux
 - Git
@@ -50,13 +45,18 @@ Skip shell profile changes:
 
 The installer builds `chef`, installs it through Cargo, and adds Cargo's bin directory to your shell startup file when needed. It does not install Rust or modify system packages.
 
-Clone the skills repository and start using `chef`:
+Set up a kitchen and start using `chef`:
 
 ```bash
-git clone https://github.com/augustsjogren/kitchen.git ~/kitchen
-chef bootstrap
-chef serve
+mkdir -p ~/kitchen/skills   # or point CHEF_KITCHEN at an existing folder
+chef bootstrap              # link chef's bundled meta-skills into Cursor
 chef
+```
+
+Want to look around first? Try the sample kitchen from this repository:
+
+```bash
+CHEF_KITCHEN="$PWD/testdata/pantry" chef
 ```
 
 After changing this repository, run `chef prep` to rebuild and reinstall the binary.
@@ -87,7 +87,7 @@ cursor-user (cursor-user)
 
 `chef` then opens the browser: tabbed skills · rules · extensions · serve panes with a preview pane, `/` filtering, and confirmations before anything moves.
 
-The exact counts and harnesses depend on your `kitchen` repository. The TUI is the main dining room; CLI commands are the prep cooks making setup and linking scriptable.
+The exact counts and harnesses depend on your kitchen. The TUI is the main dining room; CLI commands are the prep cooks making setup and linking scriptable.
 
 ## Commands
 
@@ -98,7 +98,7 @@ The binary is **`chef`**. Running it without a subcommand opens the browse TUI. 
 | `chef` / `chef pantry` | Browse and import kitchen content in one TUI |
 | `chef import <name> --keep-source` | Import an external skill and keep original copy |
 | `chef import <name> --force` | Import and replace original source with a symlink |
-| `chef bootstrap` | Install meta-skills into a harness |
+| `chef bootstrap` | Link chef's bundled `chef` and `chef-add-skill` skills into a harness |
 | `chef serve` | Harness link report (agent-friendly; same as `chef serve status`) |
 | `chef serve --dry-run link <id>` | Preview links without changing harness directories |
 | `chef status` | Print kitchen counts |
@@ -134,7 +134,7 @@ Run `chef <command> --help` for CLI options.
 
 This setup reflects one developer's workflow:
 
-- `kitchen` is a separate personal repository at `~/kitchen`.
+- The kitchen is a separate git repository (mine is private) at `~/kitchen`.
 - Cursor, Claude, Pi, and a generic `~/.agents/skills` directory are the harness targets.
 - Unix symlinks are preferred over duplicated skill files.
 - Harness paths may need edits for another machine.
@@ -152,7 +152,7 @@ Kitchen content is not copied into this repository.
 ## Troubleshooting
 
 - If `chef` is not found after installation, open a new shell or source your shell profile.
-- If no kitchen is found, clone `kitchen` to `~/kitchen` or set `CHEF_KITCHEN`.
+- If no kitchen is found, create `~/kitchen/skills` or set `CHEF_KITCHEN` to a folder with a `skills/` directory.
 - If `chef serve` cannot create links, verify that destination directories are writable and that your platform supports Unix symlinks.
 - `chef import <name>` refuses destructive relinking unless you pass `--force` or choose `--keep-source`.
 

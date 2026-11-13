@@ -11,7 +11,7 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 
 use chef::bootstrap;
-use chef::config::{expand_path, harness_by_id, load_harnesses, tool_root};
+use chef::config::{expand_path, harness_by_id, load_harnesses, missing_pantry_hint, tool_root};
 use chef::import::{find_external_skill, import_skill};
 use chef::item::{self, classify, items_for};
 use chef::ops::{link_item, unlink_item};
@@ -218,7 +218,14 @@ fn cargo(root: &std::path::Path, args: &[&str]) -> Result<()> {
     Ok(())
 }
 
+fn warn_missing_pantry() {
+    if let Some(hint) = missing_pantry_hint() {
+        eprintln!("{hint}");
+    }
+}
+
 fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>, dry_run: bool) -> Result<()> {
+    warn_missing_pantry();
     let project = project.map(|p| expand_path(&p.to_string_lossy()));
     match cmd {
         // Bare `serve` is a CLI report: same output as `serve status`.
@@ -260,6 +267,7 @@ fn serve(project: Option<PathBuf>, cmd: Option<ServeCmd>, dry_run: bool) -> Resu
 }
 
 fn print_pantry() -> Result<()> {
+    warn_missing_pantry();
     println!(
         "skills {}  rules {}  extensions {}",
         item::list_kind("skills")?.len(),

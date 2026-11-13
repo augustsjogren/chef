@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 
-use crate::config::pantry_root;
+use crate::config::{missing_pantry_hint, pantry_root};
 use crate::item::{self, PantryEntry};
 
 #[derive(Debug)]
@@ -21,6 +21,9 @@ pub fn import_skill(
     keep_source: bool,
     force: bool,
 ) -> Result<ImportResult> {
+    if let Some(hint) = missing_pantry_hint() {
+        bail!(hint);
+    }
     if item::is_pantry_entry(&PantryEntry {
         name: name.into(),
         preview: source.join("SKILL.md"),
@@ -217,6 +220,21 @@ mod tests {
             .to_string();
         assert!(err.contains("--force or --keep-source"));
         assert!(!repo.join("skills/my-skill").exists());
+        assert!(external.join("SKILL.md").is_file());
+
+        std::env::remove_var("CHEF_KITCHEN");
+    }
+
+    #[test]
+    fn import_fails_clearly_without_kitchen() {
+        let _lock = kitchen_env_lock();
+        let (tmp, _repo, external) = setup_import_fixture();
+        std::env::set_var("CHEF_KITCHEN", tmp.path().join("missing"));
+
+        let err = import_skill("my-skill", &external, "cursor-user", true, false)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("no kitchen"), "{err}");
         assert!(external.join("SKILL.md").is_file());
 
         std::env::remove_var("CHEF_KITCHEN");

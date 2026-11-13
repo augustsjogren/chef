@@ -70,15 +70,17 @@ struct App {
 
 impl App {
     fn new() -> Result<Self> {
+        // Without a kitchen the repo-only view is empty; start on all sources instead.
+        let missing_kitchen = chef::missing_pantry_hint();
         let mut app = Self {
             kind: Kind::Skills,
-            all_sources: false,
+            all_sources: missing_kitchen.is_some(),
             entries: Vec::new(),
             list: ListState::default(),
             preview: String::new(),
             preview_md: false,
             preview_scroll: 0,
-            flash: String::new(),
+            flash: missing_kitchen.unwrap_or_default(),
             import_confirmation: None,
             help: false,
             filter: None,
