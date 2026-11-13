@@ -23,14 +23,13 @@ Only `skills/` is required. An empty one is enough to start:
 
 ```bash
 mkdir -p ~/kitchen/skills
-chef bootstrap
 chef
 ```
 
 ## Filling it
 
 - Write skills directly in `skills/<name>/SKILL.md`.
-- Import skills you already have in `~/.cursor/skills`, `~/.claude/skills`, or `~/.agents/skills`: `chef import <name>`, or press `i` in the TUI's all-sources view.
+- Import skills you already have in `~/.cursor/skills`, `~/.claude/skills`, or `~/.agents/skills`: `chef import <name> --keep-source` (or `--force` to replace the original with a symlink), or press `i` in the TUI's all-sources view.
 - After solving a real problem, ask your agent to use the bundled `chef-add-skill` skill to capture it.
 
 `testdata/pantry` in this repository is a minimal sample kitchen.

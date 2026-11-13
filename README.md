@@ -6,20 +6,22 @@
   <img src="assets/tui-demo.gif" width="640" alt="navigating the chef TUI: filter, serve, manage links">
 </p>
 
-`chef` is a personal Rust CLI/TUI for browsing a skill pantry, importing skills, and linking them into AI coding harnesses. It is less “enterprise platform” and more “small kitchen where the mise en place is unusually well organized.” This repository is a showcase of one working setup, not an actively supported general-purpose product.
+`chef` is a Rust CLI/TUI for keeping AI agent skills in one place and linking them into the coding tools that use them. It is less “enterprise platform” and more “small kitchen where the mise en place is unusually well organized.”
 
-Supported platforms: **macOS and Linux**. Windows is not currently supported because serving and importing use Unix symlinks and Unix process tools.
+This repository is a personal project shared as a showcase, not a supported general-purpose product. It runs on **macOS and Linux**; Windows is not supported because linking relies on Unix symlinks.
 
-Your skills do not live in this repository. They live in your own **kitchen**: any folder with a `skills/` directory, at `~/kitchen` by default. See [KITCHEN.md](KITCHEN.md) for the layout.
+## How it works
+
+- **Kitchen:** your own folder of skills, rules, and extensions. It is the single source of truth, and it does not live in this repository. See [KITCHEN.md](KITCHEN.md).
+- **Harnesses:** the tools that load skills, such as Cursor, Claude, Pi, or anything reading `~/.agents/skills`. Each one is described in [`harnesses/targets.json`](harnesses/targets.json).
+- **Serving:** `chef` symlinks kitchen items into each harness's directory. Edit a skill once in the kitchen and every harness sees the change.
 
 ## Requirements
-
-Bring an appetite for terminal interfaces, and a kitchen. If `chef` can't find one, it tells you where it looked.
 
 - macOS or Linux
 - Git
 - Rust and Cargo ([install Rust with rustup](https://rustup.rs/))
-- Optional: Cursor, Claude, Pi, or any tool reading `~/.agents/skills` for `chef serve`
+- A kitchen: any folder with a `skills/` directory
 
 ## Install
 
@@ -31,78 +33,40 @@ cd chef
 ./install
 ```
 
-Preview installer actions without changing files:
+The installer builds `chef`, installs it through Cargo, and adds Cargo's bin directory to your shell startup file when needed. It does not install Rust or modify system packages. Use `./install --dry-run` to preview, or `--no-shell-modification` to leave your shell profile alone.
+
+Keep the clone around: `chef bootstrap` links skills bundled in it, and `chef prep` rebuilds from it.
+
+## Quick start
+
+Create a kitchen, or point `CHEF_KITCHEN` at a folder you already have:
 
 ```bash
-./install --dry-run
+mkdir -p ~/kitchen/skills
 ```
 
-Skip shell profile changes:
+Find the id of the harness you use, then link chef's own skills into it:
 
 ```bash
-./install --no-shell-modification
+chef serve harnesses
+chef bootstrap --harness <id>
 ```
 
-The installer builds `chef`, installs it through Cargo, and adds Cargo's bin directory to your shell startup file when needed. It does not install Rust or modify system packages.
+This links two bundled skills: `chef`, which teaches your agent how to use this tool, and `chef-add-skill`, which turns a solved problem into a new skill. Without `--harness`, bootstrap targets `cursor-user`.
 
-Set up a kitchen and start using `chef`:
+Then open the TUI:
 
 ```bash
-mkdir -p ~/kitchen/skills   # or point CHEF_KITCHEN at an existing folder
-chef bootstrap              # link chef's bundled meta-skills into Cursor
 chef
 ```
 
-Want to look around first? Try the sample kitchen from this repository:
+Browse what you already have, import existing skills into the kitchen with `i`, and link them into a harness from the **serve** tab. See [the TUI](#the-browse-tui) below; every step also has a [CLI command](#commands) for scripts and agents.
+
+Want to look around first? Browse the sample kitchen in this repository:
 
 ```bash
 CHEF_KITCHEN="$PWD/testdata/pantry" chef
 ```
-
-After changing this repository, run `chef prep` to rebuild and reinstall the binary.
-
-## Showcase demo
-
-A typical first service looks like this:
-
-```text
-$ chef status
-skills 17  rules 2  extensions 1
-
-$ chef serve --dry-run link cursor-user
-skills/caveman: would link → /Users/you/.cursor/skills/caveman
-…
-
-$ chef serve sync
-skills/caveman: linked
-…
-
-$ chef serve
-cursor-user (cursor-user)
-  skills/caveman            linked     /Users/you/.cursor/skills/caveman
-  skills/caveman-compress   linked     /Users/you/.cursor/skills/caveman-compress
-  skills/chef               linked     /Users/you/.cursor/skills/chef
-  …
-```
-
-`chef` then opens the browser: tabbed skills · rules · extensions · serve panes with a preview pane, `/` filtering, and confirmations before anything moves.
-
-The exact counts and harnesses depend on your kitchen. The TUI is the main dining room; CLI commands are the prep cooks making setup and linking scriptable.
-
-## Commands
-
-The binary is **`chef`**. Running it without a subcommand opens the browse TUI. No reservation required.
-
-| Command | What |
-|---|---|
-| `chef` / `chef pantry` | Browse and import kitchen content in one TUI |
-| `chef import <name> --keep-source` | Import an external skill and keep original copy |
-| `chef import <name> --force` | Import and replace original source with a symlink |
-| `chef bootstrap` | Link chef's bundled `chef` and `chef-add-skill` skills into a harness |
-| `chef serve` | Harness link report (agent-friendly; same as `chef serve status`) |
-| `chef serve --dry-run link <id>` | Preview links without changing harness directories |
-| `chef status` | Print kitchen counts |
-| `chef prep` | Rebuild and reinstall this CLI |
 
 ## The browse TUI
 
@@ -119,42 +83,79 @@ The binary is **`chef`**. Running it without a subcommand opens the browse TUI. 
   <img src="assets/tui-help.png" width="495" alt="chef TUI: ? help overlay" title="chef TUI: help overlay">
 </p>
 
-`chef` opens one screen with four tabs: **skills · rules · extensions · serve**. Press `?` for the full key list.
+One screen, four tabs: **skills · rules · extensions · serve**. Press `?` for the full key list.
 
-- **Browse** `h/l`/`Tab` between tabs, `j/k` to move, `a` toggles repo-only vs. all sources, `PgUp/PgDn` scrolls the preview pane.
-- **Filter** with `/`, type to narrow the list live, `Esc` clears; the title shows the active pattern.
-- **Import** with `i` (skills tab + all sources): a `Y/N` popup confirms before a skill is copied into the kitchen and its external source replaced by a symlink.
-- **Serve tab** lists the harnesses from `harnesses/targets.json`, grouped by tool family. `Enter` opens a harness, `space`/`a` select items, and `w` links while `u` unlinks — both operate on the selection; the status row shows what would happen (`2 to link · 1 to unlink`). Unlink always asks first, and mis-pointed (foreign) links can be removed and healed with a fresh `w`.
-- Item rows carry a colored link status (`linked`, `unlinked`, `foreign`, `blocked`); `blocked` means a real file/directory occupies the destination path and chef refuses to overwrite it.
-- `q` quits. For scripts and agents, `chef serve` never opens a screen: bare `chef serve` prints the link report, and `link`, `unlink`, and `sync` are non-interactive subcommands.
+- **Browse:** `h/l` or `Tab` switch tabs, `j/k` move, `PgUp/PgDn` scroll the preview. `a` toggles between the kitchen only and all sources (kitchen plus every harness directory on this machine).
+- **Filter:** `/` narrows the list as you type; `Esc` clears it.
+- **Import:** `i` on an external skill (skills tab, all sources) copies it into the kitchen and replaces the original with a symlink, after a `Y/N` confirmation.
+- **Serve:** pick a harness with `Enter`, select items with `space` or `a`, then `w` links and `u` unlinks the selection. The status row shows what will happen (`2 to link · 1 to unlink`), and unlinking always asks first.
+- **Link status:** `linked`, `unlinked`, `foreign` (points somewhere else; unlink and relink with `w` to heal it), or `blocked` (a real file sits at the destination, and chef won't overwrite it).
+- `q` quits.
 
-Run `chef <command> --help` for CLI options.
+For scripts and agents, use the CLI below: `chef serve` never opens a screen.
 
-## Personal assumptions
+## Commands
 
-This setup reflects one developer's workflow:
+Running `chef` without a subcommand opens the browse TUI. No reservation required.
 
-- The kitchen is a separate git repository (mine is private) at `~/kitchen`.
-- Cursor, Claude, Pi, and a generic `~/.agents/skills` directory are the harness targets.
-- Unix symlinks are preferred over duplicated skill files.
-- Harness paths may need edits for another machine.
+| Command | What |
+|---|---|
+| `chef` / `chef pantry` | Browse kitchen and harness content in one TUI |
+| `chef status` | Print kitchen counts |
+| `chef import <name> --keep-source` | Copy an external skill into the kitchen and keep the original |
+| `chef import <name> --force` | Copy it in and replace the original with a symlink |
+| `chef bootstrap [--harness <id>]` | Link the bundled `chef` and `chef-add-skill` skills into a harness |
+| `chef serve` | Print link status for every harness (same as `chef serve status`) |
+| `chef serve harnesses` | List harness ids |
+| `chef serve link <id>` / `unlink <id>` | Link or unlink the kitchen in one harness |
+| `chef serve sync [<id>…]` | Link several harnesses in one pass |
+| `chef serve --dry-run …` | Preview changes without touching harness directories |
+| `chef prep` | Rebuild and reinstall `chef` from this repository |
 
-`chef` is intentionally opinionated. It has a favorite knife and strong feelings about mise en place. Fork or adapt `harnesses/targets.json` rather than expecting zero-configuration support for every environment.
+Project harnesses (`cursor-project`, `claude-project`) also need `--project <path>`. Run `chef <command> --help` for every option.
+
+A typical service, with your own counts and paths:
+
+```text
+$ chef status
+skills 17  rules 2  extensions 1
+
+$ chef serve --dry-run link claude-user
+skills/caveman: would link → /Users/you/.claude/skills/caveman
+…
+
+$ chef serve
+Claude (user) (claude-user)
+  skills/caveman            linked     /Users/you/.claude/skills/caveman
+  skills/chef               linked     /Users/you/.claude/skills/chef
+  …
+```
+
+## Harnesses
+
+| Id | Skills | Rules | Extensions |
+|---|---|---|---|
+| `cursor-user` | `~/.cursor/skills` | `~/.cursor/rules` | |
+| `claude-user` | `~/.claude/skills` | | |
+| `pi` | `~/.pi/agent/skills` | | `~/.pi/agent/extensions` |
+| `agents` | `~/.agents/skills` | | |
+| `cursor-project` | `<project>/.cursor/skills` | `<project>/.cursor/rules` | |
+| `claude-project` | `<project>/.claude/skills` | | |
+
+These match one developer's machine. To add or change a harness, edit [`harnesses/targets.json`](harnesses/targets.json) and run `chef prep`. `chef` is intentionally opinionated: it has a favorite knife and strong feelings about mise en place.
 
 ## Configuration
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CHEF_KITCHEN` | `~/kitchen` | Override kitchen location |
-
-Kitchen content is not copied into this repository.
+| `CHEF_KITCHEN` | `~/kitchen` | Kitchen location |
 
 ## Troubleshooting
 
-- If `chef` is not found after installation, open a new shell or source your shell profile.
-- If no kitchen is found, create `~/kitchen/skills` or set `CHEF_KITCHEN` to a folder with a `skills/` directory.
-- If `chef serve` cannot create links, verify that destination directories are writable and that your platform supports Unix symlinks.
-- `chef import <name>` refuses destructive relinking unless you pass `--force` or choose `--keep-source`.
+- **`chef` not found after installing:** open a new shell or source your shell profile.
+- **"no kitchen at …":** create a `skills/` folder there, or set `CHEF_KITCHEN` to a folder that has one.
+- **Links fail:** check that the harness directory is writable. Items shown as `blocked` have a real file in the way; move it aside first.
+- **`chef import` refuses:** pass `--keep-source` to keep the original, or `--force` to replace it with a symlink.
 
 ## Development
 
@@ -164,7 +165,7 @@ cargo clippy -- -D warnings
 cargo test
 ```
 
-This is a personal project and is not accepting contributions. See [CONTRIBUTING.md](CONTRIBUTING.md).
+`./dev <args>` runs `chef` from source without reinstalling. This project is not accepting contributions; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 <p align="center">
   <img src="assets/chef.png" alt="Pixel-art chef mascot" width="320">
