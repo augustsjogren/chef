@@ -14,7 +14,7 @@ Pi loads skills from `~/.pi/agent/skills/`, plus packages and extensions. `chef 
 chef serve
 ```
 
-Pick **Pi** in the TUI, select skills or extensions, press `l` to link.
+Pick **Pi** in the TUI, select skills, rules, or extensions, press `w` to link (from the harnesses screen, `S` links everything everywhere).
 
 Or CLI:
 

@@ -415,6 +415,7 @@ pub fn draw_help(frame: &mut Frame) {
         keys("  y / n, Esc, q       confirm / cancel import"),
         header("SERVE TAB"),
         keys("  Enter               open harness → manage its links"),
+        keys("  S                   sync all: link everything into every harness"),
         keys("  space / a           toggle / select all items"),
         keys("  w                   link selected items"),
         keys("  u                   unlink selected (asks first; also removes foreign)"),

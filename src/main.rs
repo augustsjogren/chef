@@ -384,6 +384,8 @@ fn apply(id: &str, project: Option<&std::path::Path>, link: bool, dry_run: bool)
     }
     // Refresh the managed `@import` block (e.g. `~/.claude/CLAUDE.md`) so
     // it matches the new link state. Dry-run reports the planned change.
-    chef::memory::sync_memory(&harness, project, dry_run, link)?;
+    if let Some(report) = chef::memory::sync_memory(&harness, project, dry_run, link)? {
+        println!("{}", report.line(dry_run));
+    }
     Ok(())
 }

@@ -15,7 +15,7 @@ use chef::config::{expand_path, Harness};
 use chef::item::{classify, items_for, Item, LinkState};
 use chef::load_harnesses;
 use chef::memory::sync_memory;
-use chef::ops::{link_item, unlink_item};
+use chef::ops::{link_item, unlink_item, ActionResult};
 
 use crate::theme;
 
@@ -149,9 +149,47 @@ impl App {
     /// Rewrite the managed import block (e.g. `~/.claude/CLAUDE.md`) after
     /// link state changed. No-op for harnesses without a rules memory file.
     fn sync_memory(&mut self, link_pass: bool) -> Result<()> {
-        if let Some(path) = sync_memory(self.current_harness(), self.project.as_deref(), false, link_pass)? {
-            self.flash.push_str(&format!("  |  memory: {}", path.display()));
+        if let Some(report) = sync_memory(self.current_harness(), self.project.as_deref(), false, link_pass)? {
+            self.flash.push_str(&format!("  |  {}", report.line(false)));
         }
+        Ok(())
+    }
+
+    /// Link everything into every harness (all non-project harnesses, plus
+    /// project ones when a project path is set), then refresh memory blocks.
+    fn apply_sync_all(&mut self) -> Result<()> {
+        let mut linked = 0usize;
+        let mut already = 0usize;
+        let mut blocked = 0usize;
+        let mut memories = Vec::new();
+        for idx in 0..self.harnesses.len() {
+            let harness = self.harnesses[idx].clone();
+            if harness.project && self.project.is_none() {
+                continue;
+            }
+            for item in items_for(&harness, self.project.as_deref())? {
+                match link_item(&item) {
+                    ActionResult::Linked => linked += 1,
+                    ActionResult::AlreadyLinked => already += 1,
+                    ActionResult::Blocked(_) => blocked += 1,
+                    _ => {}
+                }
+            }
+            if let Some(report) =
+                sync_memory(&harness, self.project.as_deref(), false, true)?
+            {
+                memories.push(report.line(false));
+            }
+        }
+        self.flash = format!(
+            "sync all: {linked} linked, {already} already, {blocked} blocked{}",
+            if memories.is_empty() {
+                String::new()
+            } else {
+                format!("  |  {}", memories.join("  |  "))
+            }
+        );
+        self.reload_items()?;
         Ok(())
     }
 
@@ -295,6 +333,7 @@ impl App {
                     self.prompt_return = Screen::Harnesses;
                     self.screen = Screen::ProjectPrompt;
                 }
+                KeyCode::Char('S') => self.apply_sync_all()?,
                 KeyCode::Enter => self.open_harness()?,
                 _ => {}
             },

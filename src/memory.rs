@@ -17,7 +17,8 @@ pub const BEGIN_MARKER: &str = "<!-- chef:begin -->";
 pub const END_MARKER: &str = "<!-- chef:end -->";
 
 /// Sync the managed block for `harness`'s rules kind, if it declares a
-/// `memory` file. Returns the memory path when one is declared.
+/// `memory` file. Returns a report for callers to display: the CLI prints
+/// it, the TUI adds it to the flash line.
 ///
 /// The block lists every rule linked (or about to be, when `link_pass`)
 /// into the kitchen, so it stays correct after both `link` and `unlink`.
@@ -26,30 +27,50 @@ pub fn sync_memory(
     project: Option<&Path>,
     dry_run: bool,
     link_pass: bool,
-) -> Result<Option<PathBuf>> {
+) -> Result<Option<MemoryReport>> {
     let Some(memory) = harness.kinds.get("rules").and_then(|s| s.memory.as_deref()) else {
         return Ok(None);
     };
     let memory_path = memory_path(memory, project)?;
     let imports = linked_rule_imports(harness, project, link_pass)?;
 
-    match (plan(&memory_path, &imports), dry_run) {
+    let action = plan(&memory_path, &imports);
+    match (action, dry_run) {
         (Action::None, _) => {}
-        (action, true) => println!("memory: would {} {}", action, memory_path.display()),
-        (Action::Write, false) => {
-            write_block(&memory_path, &imports)?;
-            println!("memory: {} ({})", memory_path.display(), imports.len());
-        }
-        (Action::Remove, false) => {
-            remove_block(&memory_path)?;
-            println!("memory: {} (removed)", memory_path.display());
-        }
+        (Action::Write, false) => write_block(&memory_path, &imports)?,
+        (Action::Remove, false) => remove_block(&memory_path)?,
+        (_, true) => {}
     }
-    Ok(Some(memory_path))
+    Ok(Some(MemoryReport {
+        path: memory_path,
+        action,
+        imports: imports.len(),
+    }))
 }
 
-#[derive(Debug, PartialEq)]
-enum Action {
+/// What a `sync_memory` pass did to a memory file.
+#[derive(Debug)]
+pub struct MemoryReport {
+    pub path: PathBuf,
+    pub action: Action,
+    pub imports: usize,
+}
+
+impl MemoryReport {
+    pub fn line(&self, dry_run: bool) -> String {
+        match (self.action, dry_run) {
+            (Action::None, _) => format!("memory: {} (up to date)", self.path.display()),
+            (action, true) => format!("memory: would {} {}", action, self.path.display()),
+            (Action::Write, false) => {
+                format!("memory: {} ({})", self.path.display(), self.imports)
+            }
+            (Action::Remove, false) => format!("memory: {} (removed)", self.path.display()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Action {
     None,
     Write,
     Remove,
