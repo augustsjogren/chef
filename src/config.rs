@@ -106,6 +106,10 @@ pub struct KindSpec {
     pub dir: String,
     pub mode: String,
     pub dest_ext: Option<String>,
+    /// Memory file that should `@import` every linked rule (e.g.
+    /// `~/.claude/CLAUDE.md`). Chef rewrites a marker-delimited block in it.
+    #[serde(default)]
+    pub memory: Option<String>,
 }
 
 impl Harness {

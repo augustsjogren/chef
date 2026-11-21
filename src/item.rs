@@ -299,6 +299,7 @@ mod tests {
             dir: "~/.cursor/rules".into(),
             mode: "file".into(),
             dest_ext: Some(".mdc".into()),
+            memory: None,
         };
         assert_eq!(
             dest_name(Path::new("rules/prefer-edit.md"), &spec),

@@ -12,7 +12,8 @@
       "id": "claude-user",
       "label": "Claude (user)",
       "kinds": {
-        "skills": { "dir": "~/.claude/skills", "mode": "dir" }
+        "skills": { "dir": "~/.claude/skills", "mode": "dir" },
+        "rules": { "dir": "~/.claude/rules", "mode": "file", "memory": "~/.claude/CLAUDE.md" }
       }
     },
     {
@@ -20,6 +21,7 @@
       "label": "Pi",
       "kinds": {
         "skills": { "dir": "~/.pi/agent/skills", "mode": "dir" },
+        "rules": { "dir": "~/.pi/agent/rules", "mode": "file" },
         "extensions": { "dir": "~/.pi/agent/extensions", "mode": "file" }
       }
     },
@@ -44,7 +46,8 @@
       "label": "Claude (project)",
       "project": true,
       "kinds": {
-        "skills": { "dir": ".claude/skills", "mode": "dir" }
+        "skills": { "dir": ".claude/skills", "mode": "dir" },
+        "rules": { "dir": ".claude/rules", "mode": "file", "memory": "CLAUDE.md" }
       }
     }
   ]
