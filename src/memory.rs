@@ -115,7 +115,10 @@ fn linked_rule_imports(
         })
         .collect();
     items.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(items.iter().map(|item| format!("@{}", item.dest.display())).collect())
+    Ok(items
+        .iter()
+        .map(|item| format!("@{}", item.dest.display()))
+        .collect())
 }
 
 fn memory_path(memory: &str, project: Option<&Path>) -> Result<PathBuf> {
@@ -154,9 +157,14 @@ fn write_block(memory_path: &Path, imports: &[String]) -> Result<()> {
     let block = block(imports);
     let content = match existing.find(BEGIN_MARKER) {
         Some(start) => {
-            let end_off = existing[start..]
-                .find(END_MARKER)
-                .with_context(|| format!("{} has {} without {}", memory_path.display(), BEGIN_MARKER, END_MARKER))?;
+            let end_off = existing[start..].find(END_MARKER).with_context(|| {
+                format!(
+                    "{} has {} without {}",
+                    memory_path.display(),
+                    BEGIN_MARKER,
+                    END_MARKER
+                )
+            })?;
             let tail = &existing[start + end_off + END_MARKER.len()..];
             join(&existing[..start], &block, tail)
         }
@@ -170,7 +178,8 @@ fn write_block(memory_path: &Path, imports: &[String]) -> Result<()> {
 }
 
 fn remove_block(memory_path: &Path) -> Result<()> {
-    let existing = fs::read_to_string(memory_path).with_context(|| format!("read {}", memory_path.display()))?;
+    let existing = fs::read_to_string(memory_path)
+        .with_context(|| format!("read {}", memory_path.display()))?;
     let content = match extract_block(&existing) {
         Some(block) => {
             let start = existing.find(BEGIN_MARKER).unwrap_or_default();

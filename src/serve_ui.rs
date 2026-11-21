@@ -149,7 +149,12 @@ impl App {
     /// Rewrite the managed import block (e.g. `~/.claude/CLAUDE.md`) after
     /// link state changed. No-op for harnesses without a rules memory file.
     fn sync_memory(&mut self, link_pass: bool) -> Result<()> {
-        if let Some(report) = sync_memory(self.current_harness(), self.project.as_deref(), false, link_pass)? {
+        if let Some(report) = sync_memory(
+            self.current_harness(),
+            self.project.as_deref(),
+            false,
+            link_pass,
+        )? {
             self.flash.push_str(&format!("  |  {}", report.line(false)));
         }
         Ok(())
@@ -175,9 +180,7 @@ impl App {
                     _ => {}
                 }
             }
-            if let Some(report) =
-                sync_memory(&harness, self.project.as_deref(), false, true)?
-            {
+            if let Some(report) = sync_memory(&harness, self.project.as_deref(), false, true)? {
                 memories.push(report.line(false));
             }
         }
