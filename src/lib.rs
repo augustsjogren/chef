@@ -4,6 +4,7 @@ pub mod bootstrap;
 pub mod config;
 pub mod import;
 pub mod item;
+pub mod memory;
 pub mod ops;
 
 pub use bootstrap::{bootstrap, write_bundled_skills, BOOTSTRAP_SKILLS};

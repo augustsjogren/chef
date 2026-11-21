@@ -14,6 +14,7 @@ use ratatui::Frame;
 use chef::config::{expand_path, Harness};
 use chef::item::{classify, items_for, Item, LinkState};
 use chef::load_harnesses;
+use chef::memory::sync_memory;
 use chef::ops::{link_item, unlink_item};
 
 use crate::theme;
@@ -130,6 +131,7 @@ impl App {
         }
         let keys = self.keys_for(LinkState::Missing);
         self.run_on(&keys, |item| link_item(item).to_string())?;
+        self.sync_memory(true)?;
         Ok(())
     }
 
@@ -140,6 +142,16 @@ impl App {
         }
         let keys = self.keys_for(LinkState::Linked);
         self.run_on(&keys, |item| unlink_item(item).to_string())?;
+        self.sync_memory(false)?;
+        Ok(())
+    }
+
+    /// Rewrite the managed import block (e.g. `~/.claude/CLAUDE.md`) after
+    /// link state changed. No-op for harnesses without a rules memory file.
+    fn sync_memory(&mut self, link_pass: bool) -> Result<()> {
+        if let Some(path) = sync_memory(self.current_harness(), self.project.as_deref(), false, link_pass)? {
+            self.flash.push_str(&format!("  |  memory: {}", path.display()));
+        }
         Ok(())
     }
 
