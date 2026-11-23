@@ -104,7 +104,7 @@ CHEF_KITCHEN="$PWD/testdata/pantry" chef
 
 One screen, four tabs: **skills · rules · extensions · serve**. Press `?` for the full key list.
 
-- **Browse:** `h/l` or `Tab` switch tabs, `j/k` move, `PgUp/PgDn` scroll the preview. `a` toggles between the kitchen only and all sources (kitchen plus every harness directory on this machine).
+- **Browse:** `h/l` or `Tab` switch tabs, `j/k` move, `J/K` (line) or `Ctrl-d/Ctrl-u` (half page) scroll the preview, `y` copies the previewed file to the clipboard. `a` toggles between the kitchen only and all sources (kitchen plus every harness directory on this machine).
 - **Filter:** `/` narrows the list as you type; `Esc` clears it.
 - **Import:** `i` on an external skill (skills tab, all sources) copies it into the kitchen and replaces the original with a symlink, after a `Y/N` confirmation.
 - **Serve:** pick a harness with `Enter`, select items with `space` or `a`, then `w` links and `u` unlinks the selection. The status row shows what will happen (`2 to link · 1 to unlink`), and unlinking always asks first.

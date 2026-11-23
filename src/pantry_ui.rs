@@ -1,10 +1,12 @@
 //! Browse skills, rules, and extensions across repo + harness dirs. Preview only.
 
 use std::fs;
+use std::io::Write;
+use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -60,6 +62,8 @@ struct App {
     preview: String,
     preview_md: bool,
     preview_scroll: u16,
+    /// Visible preview rows at last draw; sizes half-page scrolls.
+    preview_height: u16,
     flash: String,
     import_confirmation: Option<PantryEntry>,
     help: bool,
@@ -80,6 +84,7 @@ impl App {
             preview: String::new(),
             preview_md: false,
             preview_scroll: 0,
+            preview_height: 0,
             flash: missing_kitchen.unwrap_or_default(),
             import_confirmation: None,
             help: false,
@@ -212,6 +217,33 @@ impl App {
         }
     }
 
+    fn scroll_preview(&mut self, delta: i32) {
+        self.preview_scroll = scrolled(self.preview_scroll, delta);
+    }
+
+    fn copy_preview(&mut self) {
+        let Some(entry) = self.list.selected().and_then(|i| self.entries.get(i)) else {
+            self.flash = "nothing to copy".into();
+            return;
+        };
+        let text = match fs::read_to_string(&entry.preview) {
+            Ok(text) => text,
+            Err(_) => {
+                self.flash = format!("cannot read {}", entry.preview.display());
+                return;
+            }
+        };
+        let file = entry
+            .preview
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        self.flash = match copy_to_clipboard(&text) {
+            Ok(()) => format!("copied {file} ({} lines)", text.lines().count()),
+            Err(e) => e,
+        };
+    }
+
     fn handle(&mut self, key: KeyEvent) -> Result<bool> {
         if key.kind != KeyEventKind::Press {
             return Ok(false);
@@ -305,7 +337,11 @@ impl App {
         if !matches!(key.code, KeyCode::Char('i') | KeyCode::Char('I')) {
             self.flash.clear();
         }
+        let half_page = (self.preview_height / 2).max(1) as i32;
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         match key.code {
+            KeyCode::Char('d') if ctrl => self.scroll_preview(half_page),
+            KeyCode::Char('u') if ctrl => self.scroll_preview(-half_page),
             KeyCode::Char('q') | KeyCode::Char('Q') => return Ok(true),
             KeyCode::Char('p') | KeyCode::Char('P') => self.set_kind(Kind::Serve)?,
             KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
@@ -316,12 +352,11 @@ impl App {
             }
             KeyCode::Up | KeyCode::Char('k') => self.move_list(-1),
             KeyCode::Down | KeyCode::Char('j') => self.move_list(1),
-            KeyCode::PageUp => {
-                self.preview_scroll = self.preview_scroll.saturating_sub(8);
-            }
-            KeyCode::PageDown => {
-                self.preview_scroll = self.preview_scroll.saturating_add(8);
-            }
+            KeyCode::Char('K') => self.scroll_preview(-1),
+            KeyCode::Char('J') => self.scroll_preview(1),
+            KeyCode::PageUp => self.scroll_preview(-half_page),
+            KeyCode::PageDown => self.scroll_preview(half_page),
+            KeyCode::Char('y') => self.copy_preview(),
             KeyCode::Char('a') | KeyCode::Char('A') => self.toggle_sources()?,
             KeyCode::Char('i') | KeyCode::Char('I') => self.import_selected()?,
             _ => {}
@@ -387,7 +422,7 @@ fn draw(frame: &mut Frame, app: &mut App) {
         ))
     } else {
         Line::from(Span::styled(
-            "[h/l]:tab  [j/k]:move  [p]:serve  [a]:sources  [i]:import  [pgup/dn]:preview  [?]:help  [q]:quit",
+            "[h/l]:tab  [j/k]:move  [J/K]:scroll  [y]:copy  [p]:serve  [a]:sources  [i]:import  [?]:help  [q]:quit",
             Style::default().fg(theme::muted()),
         ))
     };
@@ -408,7 +443,9 @@ pub fn draw_help(frame: &mut Frame) {
         header("NAVIGATION"),
         keys("  h/l, Tab            switch tab (skills · rules · extensions · serve)"),
         keys("  j/k, arrows         move selection"),
-        keys("  PgUp/PgDn           scroll preview"),
+        keys("  J/K                 scroll preview one line"),
+        keys("  Ctrl-d/Ctrl-u       scroll preview half page (also PgDn/PgUp)"),
+        keys("  y                   copy previewed file to clipboard"),
         keys("  a                   toggle repo / all sources"),
         header("IMPORT"),
         keys("  i                   import selected skill (skills tab + all sources)"),
@@ -561,7 +598,7 @@ fn draw_kinds(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_stateful_widget(list, area, &mut app.list);
 }
 
-fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
+fn draw_preview(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_widget(Clear, area);
     let loc = app
         .list
@@ -577,6 +614,7 @@ fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
+    app.preview_height = inner.height;
     let width = inner.width as usize;
     let height = inner.height as usize;
     if width == 0 || height == 0 {
@@ -602,6 +640,8 @@ fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
     }
     let max_scroll = rows.len().saturating_sub(height);
     let start = (app.preview_scroll as usize).min(max_scroll);
+    // Clamp stored scroll so overscrolling past the end doesn't need extra presses back.
+    app.preview_scroll = start as u16;
     let mut visible: Vec<Line> = rows.into_iter().skip(start).take(height).collect();
     while visible.len() < height {
         visible.push(Line::from(" ".repeat(width)));
@@ -666,6 +706,42 @@ fn read_preview(path: &std::path::Path) -> Result<String, String> {
     }
 }
 
+/// Apply a scroll delta, saturating at 0 and `u16::MAX`; draw clamps to content.
+fn scrolled(cur: u16, delta: i32) -> u16 {
+    (cur as i32 + delta).clamp(0, u16::MAX as i32) as u16
+}
+
+/// Pipe `text` into the first clipboard tool found (macOS, Wayland, X11).
+fn copy_to_clipboard(text: &str) -> Result<(), String> {
+    const TOOLS: [(&str, &[&str]); 4] = [
+        ("pbcopy", &[]),
+        ("wl-copy", &[]),
+        ("xclip", &["-selection", "clipboard"]),
+        ("xsel", &["--clipboard", "--input"]),
+    ];
+    for (bin, args) in TOOLS {
+        let Ok(mut child) = Command::new(bin)
+            .args(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        else {
+            continue;
+        };
+        let wrote = child
+            .stdin
+            .take()
+            .is_some_and(|mut stdin| stdin.write_all(text.as_bytes()).is_ok());
+        let ok = child.wait().is_ok_and(|s| s.success());
+        if wrote && ok {
+            return Ok(());
+        }
+        return Err(format!("copy failed ({bin})"));
+    }
+    Err("copy: no clipboard tool (pbcopy, wl-copy, xclip, xsel)".into())
+}
+
 fn truncate(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         s.to_string()
@@ -706,6 +782,13 @@ mod tests {
             rows,
             vec!["a ".to_string(), "  ".to_string(), "b ".to_string()]
         );
+    }
+
+    #[test]
+    fn scrolled_saturates_at_bounds() {
+        assert_eq!(scrolled(5, 3), 8);
+        assert_eq!(scrolled(2, -5), 0);
+        assert_eq!(scrolled(u16::MAX - 1, 10), u16::MAX);
     }
 
     #[test]
