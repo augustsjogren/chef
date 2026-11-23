@@ -1,6 +1,6 @@
 [package]
 name = "chef"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "chef — browse kitchen and serve skills into AI harnesses."
 license = "MIT"
